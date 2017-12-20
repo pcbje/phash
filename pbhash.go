@@ -6,12 +6,12 @@ import (
 	"math"
 	"math/rand"
 	"strings"
-	_ "time"
+	"time"
 )
 
 type IndexEntry struct {
-	DocId string
-	Hash uint32
+	DocId    string
+	Hash     uint32
 	Offset   float64
 	Children map[uint32]map[string]IndexEntry
 	Last     bool
@@ -23,29 +23,29 @@ type SampledHash struct {
 	Index  float64
 }
 
-type Flexi struct {
+type PBHash struct {
 	Index   IndexEntry
 	Sampled map[string][]SampledHash
 	Matches map[string]map[string]int
-	State map[uint32]map[string]IndexEntry
-	Random *rand.Rand
+	State   map[uint32]map[string]IndexEntry
+	Random  *rand.Rand
 }
 
-func (f Flexi) Sample(docId string, index float64, hash uint32) {
+func (pb PBHash) Sample(docId string, index float64, hash uint32) {
 	if hash == 0 {
 		return
 	}
 
 	var random float64
 
-	if f.Random == nil {
+	if pb.Random == nil {
 		random = rand.Float64()
 	} else {
-		random = f.Random.Float64()
+		random = pb.Random.Float64()
 	}
 
 	if random <= 1/math.Sqrt(index) {
-		f.Sampled[docId] = append(f.Sampled[docId], SampledHash{
+		pb.Sampled[docId] = append(pb.Sampled[docId], SampledHash{
 			Hash:   hash,
 			Random: random,
 			Index:  index,
@@ -53,12 +53,12 @@ func (f Flexi) Sample(docId string, index float64, hash uint32) {
 	}
 }
 
-func (f Flexi) Commit(docId string) {
+func (pb PBHash) Commit(docId string) {
 	hashes := []SampledHash{}
-	maxIndex := f.Sampled[docId][len(f.Sampled[docId])-1].Index
+	maxIndex := pb.Sampled[docId][len(pb.Sampled[docId])-1].Index
 	threshold := 1 / math.Sqrt(maxIndex)
 
-	for _, sampledHash := range f.Sampled[docId] {
+	for _, sampledHash := range pb.Sampled[docId] {
 		if sampledHash.Random <= threshold {
 			hashes = append(hashes, sampledHash)
 		}
@@ -74,7 +74,7 @@ func (f Flexi) Commit(docId string) {
 	}
 
 	for _, word := range words {
-		item := f.Index
+		item := pb.Index
 
 		for hashIndex, sampledHash := range word {
 			if _, ok := item.Children[sampledHash.Hash]; !ok {
@@ -82,64 +82,63 @@ func (f Flexi) Commit(docId string) {
 			}
 
 			item.Children[sampledHash.Hash][docId] = IndexEntry{
-				DocId: docId,
-				Hash: 	  sampledHash.Hash,
+				DocId:    docId,
+				Hash:     sampledHash.Hash,
 				Offset:   sampledHash.Index,
 				Children: map[uint32]map[string]IndexEntry{},
 				Last:     hashIndex == len(word)-1,
 			}
-			
 
 			item = item.Children[sampledHash.Hash][docId]
 		}
 	}
 }
 
-func (f Flexi) Match(docId string, index float64, hash uint32) {	
-	if _, ok := f.State[hash]; ok {	
-		for matchedDocId, state := range f.State[hash] {				
-			for nextHash, nextStates := range state.Children {					
-				if _, hasHash := f.State[nextHash]; !hasHash {
-					f.State[nextHash] = map[string]IndexEntry{}
+func (pb PBHash) Match(docId string, index float64, hash uint32) {
+	if _, ok := pb.State[hash]; ok {
+		for matchedDocId, state := range pb.State[hash] {
+			for nextHash, nextStates := range state.Children {
+				if _, hasHash := pb.State[nextHash]; !hasHash {
+					pb.State[nextHash] = map[string]IndexEntry{}
 				}
 
 				for _, nextState := range nextStates {
-					f.State[nextHash][fmt.Sprintf("%v:%v", index, nextState.DocId)] = nextState
+					pb.State[nextHash][fmt.Sprintf("%v:%v", index, nextState.DocId)] = nextState
 				}
 			}
 
-			if state.Last {					
+			if state.Last {
 				matchedDocId = strings.Split(matchedDocId, ":")[1]
-				if _, notFirstMatch := f.Matches[docId][matchedDocId]; !notFirstMatch {
-					f.Matches[docId][matchedDocId] = 0
+				if _, notFirstMatch := pb.Matches[docId][matchedDocId]; !notFirstMatch {
+					pb.Matches[docId][matchedDocId] = 0
 				}
 
-				f.Matches[docId][matchedDocId] = f.Matches[docId][matchedDocId] + 1					
-			}		
+				pb.Matches[docId][matchedDocId] = pb.Matches[docId][matchedDocId] + 1
+			}
 		}
 	}
 
-	if _, ok := f.Index.Children[hash]; ok {				
-		for _, state := range f.Index.Children[hash] {			
+	if _, ok := pb.Index.Children[hash]; ok {
+		for _, state := range pb.Index.Children[hash] {
 			for nextHash, nextStates := range state.Children {
 				for _, nextState := range nextStates {
-					if _, hasHash := f.State[nextHash]; !hasHash {
-						f.State[nextHash] = map[string]IndexEntry{}
+					if _, hasHash := pb.State[nextHash]; !hasHash {
+						pb.State[nextHash] = map[string]IndexEntry{}
 					}
-					
-					f.State[nextHash][fmt.Sprintf("%v:%v", index, nextState.DocId)] = nextState						
+
+					pb.State[nextHash][fmt.Sprintf("%v:%v", index, nextState.DocId)] = nextState
 				}
 			}
 		}
 	}
 }
 
-func (f Flexi) Process(docId string, reader *bufio.Reader) {
+func (pb PBHash) Process(docId string, reader *bufio.Reader) {
 	hasher := NewBuzHash(12)
 
-	f.State = map[uint32]map[string]IndexEntry{}
-	f.Sampled[docId] = []SampledHash{}
-	f.Matches[docId] = map[string]int{}	
+	pb.State = map[uint32]map[string]IndexEntry{}
+	pb.Sampled[docId] = []SampledHash{}
+	pb.Matches[docId] = map[string]int{}
 
 	var err error
 	var b byte
@@ -153,10 +152,8 @@ func (f Flexi) Process(docId string, reader *bufio.Reader) {
 		hasher.HashByte(b)
 		hash = hasher.Sum32()
 
-		//fmt.Println(index, hash)
-
-		f.Sample(docId, index, hash)
-		f.Match(docId, index, hash)
+		pb.Sample(docId, index, hash)
+		pb.Match(docId, index, hash)
 
 		b, err = reader.ReadByte()
 		index += 1
@@ -166,9 +163,9 @@ func (f Flexi) Process(docId string, reader *bufio.Reader) {
 func main() {
 	reader := bufio.NewReader(strings.NewReader("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent molestie mi sed mollis hendrerit. Phasellus at vulputate sem. Nulla facilisi. Aenean vitae consectetur mauris, vitae tristique leo. Fusce eget elit felis. Vestibulum imperdiet dui et leo varius, et commodo tortor ultrices. Aliquam pharetra elementum nunc in vulputate. Vestibulum ultricies posuere suscipit. Sed a sodales mi. Curabitur ligula augue, ultricies vitae ante in, vulputate vulputate sem. Ut at tellus quam."))
 
-	f := Flexi{
+	pbhash := PBHash{
 		Matches: map[string]map[string]int{},
-		//Random: rand.New(rand.NewSource(time.Now().UnixNano())),
+		Random:  rand.New(rand.NewSource(time.Now().UnixNano())),
 		Sampled: map[string][]SampledHash{},
 		Index: IndexEntry{
 			Offset:   0,
@@ -177,15 +174,14 @@ func main() {
 		State: map[uint32]map[string]IndexEntry{},
 	}
 
-	f.Process("1234", reader)
-	f.Commit("1234")
-	
-	f.Process("4321", bufio.NewReader(strings.NewReader("Lorem ipsum dolor sit amet, consectetur adipiscing dasds. Praesent molestie mi sed mollis adSADzxzx<. Phasellus at vulputate sem. Nulla facilisi. Aenean vitae consectetur mauris, vitae tristique leo. Fusce eget elit felis. Vestibulum sadsadas dui et leo varius, et commodo tortor ultrices. Aliquam pharetra elementum nunc in vulputate. Vestibulum ultricies posuere suscipit. Sed a sodales mi. Curabitur ligula augue, ultricies vitae ante in, vulputate sem. Ut at tellus quam.")))
-	fmt.Println(f.Matches["4321"])
+	pbhash.Process("1234", reader)
+	pbhash.Commit("1234")
 
-	f.Process("0000", bufio.NewReader(strings.NewReader("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent molestie mi sed mollis hendrerit. Phasellus at vulputate sem. Nulla facilisi. Aenean vitae consectetur mauris, vitae tristique leo. Fusce eget elit felis. Vestibulum imperdiet dui et leo varius, et commodo tortor ultrices. Aliquam pharetra elementum nunc in vulputate. Vestibulum ultricies posuere suscipit. Sed a sodales mi. Curabitur ligula augue, ultricies vitae ante in, vulputate vulputate sem. Ut at tellus quam.")))
-	fmt.Println(f.Matches["0000"])
+	pbhash.Process("4321", bufio.NewReader(strings.NewReader("Lorem ipsum dolor sit amet, consectetur adipiscing dasds. Praesent molestie mi sed mollis adSADzxzx<. Phasellus at vulputate sem. Nulla facilisi. Aenean vitae consectetur mauris, vitae tristique leo. Fusce eget elit felis. Vestibulum sadsadas dui et leo varius, et commodo tortor ultrices. Aliquam pharetra elementum nunc in vulputate. Vestibulum ultricies posuere suscipit. Sed a sodales mi. Curabitur ligula augue, ultricies vitae ante in, vulputate sem. Ut at tellus quam.")))
+	fmt.Println(pbhash.Matches["4321"])
 
+	pbhash.Process("0000", bufio.NewReader(strings.NewReader("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent molestie mi sed mollis hendrerit. Phasellus at vulputate sem. Nulla facilisi. Aenean vitae consectetur mauris, vitae tristique leo. Fusce eget elit felis. Vestibulum imperdiet dui et leo varius, et commodo tortor ultrices. Aliquam pharetra elementum nunc in vulputate. Vestibulum ultricies posuere suscipit. Sed a sodales mi. Curabitur ligula augue, ultricies vitae ante in, vulputate vulputate sem. Ut at tellus quam.")))
+	fmt.Println(pbhash.Matches["0000"])
 
-	//fmt.Println(f.Index)
+	//fmt.Println(pbhash.Index)
 }
