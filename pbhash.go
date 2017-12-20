@@ -10,10 +10,10 @@ import (
 )
 
 type IndexEntry struct {
-	Level int
+	Level    int
 	DocId    string
 	Hash     uint32
-	Distance   float64
+	Distance float64
 	Children map[uint32]map[string]IndexEntry
 	Last     bool
 }
@@ -70,12 +70,12 @@ func (pb PBHash) Commit(docId string) {
 	randomwords := make([][]SampledHash, wordCount)
 
 	partitions := make([][]SampledHash, wordCount)
-	partitionSize := math.Ceil(maxIndex / float64(wordCount)) + 1
+	partitionSize := math.Ceil(maxIndex/float64(wordCount)) + 1
 
 	for _, hash := range hashes {
 		wordIndex := rand.Intn(len(randomwords))
 		partition := int(math.Floor(hash.Index / partitionSize))
-		randomwords[wordIndex] = append(randomwords[wordIndex], hash)	
+		randomwords[wordIndex] = append(randomwords[wordIndex], hash)
 		partitions[partition] = append(partitions[partition], hash)
 	}
 
@@ -95,13 +95,13 @@ func (pb PBHash) Commit(docId string) {
 			distance := 0.0
 
 			if level > 0 {
-				distance = word[level].Index - word[level - 1].Index
+				distance = word[level].Index - word[level-1].Index
 			}
 
 			item.Children[sampledHash.Hash][docId] = IndexEntry{
 				DocId:    docId,
 				Hash:     sampledHash.Hash,
-				Distance:   distance,
+				Distance: distance,
 				Children: map[uint32]map[string]IndexEntry{},
 				Last:     level == len(word)-1,
 			}
@@ -114,11 +114,11 @@ func (pb PBHash) Commit(docId string) {
 func (pb PBHash) Match(docId string, index float64, hash uint32) {
 	if _, ok := pb.State[hash]; ok {
 		for matchedDocId, positions := range pb.State[hash] {
-			
+
 			for position, state := range positions {
 				actualDistance := index - position
 
-				if actualDistance / state.Distance > 1.1 {
+				if actualDistance/state.Distance > 1.1 {
 					delete(positions, position)
 					if len(positions) == 0 {
 						delete(pb.State, hash)
@@ -126,21 +126,21 @@ func (pb PBHash) Match(docId string, index float64, hash uint32) {
 					continue
 				}
 
-				for nextHash, nextStates := range state.Children {					
+				for nextHash, nextStates := range state.Children {
 					if _, hasHash := pb.State[nextHash]; !hasHash {
 						pb.State[nextHash] = map[string]map[float64]IndexEntry{}
 					}
 
 					for _, nextState := range nextStates {
 						if _, hasDoc := pb.State[nextHash][nextState.DocId]; !hasDoc {
-							pb.State[nextHash][nextState.DocId] = map[float64]IndexEntry{}						
+							pb.State[nextHash][nextState.DocId] = map[float64]IndexEntry{}
 						}
 
 						pb.State[nextHash][nextState.DocId][index] = nextState
 					}
 				}
 
-				if state.Last {					
+				if state.Last {
 					if _, notFirstMatch := pb.Matches[docId][matchedDocId]; !notFirstMatch {
 						pb.Matches[docId][matchedDocId] = 0
 					}
@@ -160,7 +160,7 @@ func (pb PBHash) Match(docId string, index float64, hash uint32) {
 					}
 
 					if _, hasDoc := pb.State[nextHash][nextState.DocId]; !hasDoc {
-						pb.State[nextHash][nextState.DocId] = map[float64]IndexEntry{}						
+						pb.State[nextHash][nextState.DocId] = map[float64]IndexEntry{}
 					}
 
 					pb.State[nextHash][nextState.DocId][index] = nextState
@@ -203,7 +203,7 @@ func main() {
 		Random:  rand.New(rand.NewSource(time.Now().UnixNano())),
 		Sampled: map[string][]SampledHash{},
 		Index: IndexEntry{
-			Distance:   0,
+			Distance: 0,
 			Children: map[uint32]map[string]IndexEntry{},
 		},
 		State: map[uint32]map[string]map[float64]IndexEntry{},
