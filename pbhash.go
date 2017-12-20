@@ -55,6 +55,10 @@ func (pb PBHash) Sample(docId string, index float64, hash uint32) {
 }
 
 func (pb PBHash) Commit(docId string) {
+	if len(pb.Sampled[docId]) {
+		log.Print("Nothing hashes sampled for %v", docId)
+		return
+	}
 	hashes := []SampledHash{}
 	maxIndex := pb.Sampled[docId][len(pb.Sampled[docId])-1].Index
 	threshold := 1 / math.Sqrt(maxIndex)
@@ -171,7 +175,8 @@ func (pb PBHash) Match(docId string, index float64, hash uint32) {
 }
 
 func (pb PBHash) Process(docId string, reader *bufio.Reader) {
-	hasher := NewBuzHash(12)
+	windowSize := 12.0
+	hasher := NewBuzHash(uint32(windowSize))
 
 	pb.State = map[uint32]map[string]map[float64]IndexEntry{}
 	pb.Sampled[docId] = []SampledHash{}
@@ -189,8 +194,10 @@ func (pb PBHash) Process(docId string, reader *bufio.Reader) {
 		hasher.HashByte(b)
 		hash = hasher.Sum32()
 
-		pb.Sample(docId, index, hash)
 		pb.Match(docId, index, hash)
+		if index >= windowSize {
+			pb.Sample(docId, index, hash)
+		}		
 
 		b, err = reader.ReadByte()
 		index += 1
