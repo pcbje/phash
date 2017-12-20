@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"strings"
 	"time"
+	"log"
 )
 
 type IndexEntry struct {
@@ -33,10 +34,6 @@ type PBHash struct {
 }
 
 func (pb PBHash) Sample(docId string, index float64, hash uint32) {
-	if hash == 0 {
-		return
-	}
-
 	var random float64
 
 	if pb.Random == nil {
@@ -55,10 +52,11 @@ func (pb PBHash) Sample(docId string, index float64, hash uint32) {
 }
 
 func (pb PBHash) Commit(docId string) {
-	if len(pb.Sampled[docId]) {
-		log.Print("Nothing hashes sampled for %v", docId)
+	if len(pb.Sampled[docId]) == 0 {
+		log.Print(fmt.Sprintf("No hashes sampled for doc: %v", docId))
 		return
 	}
+
 	hashes := []SampledHash{}
 	maxIndex := pb.Sampled[docId][len(pb.Sampled[docId])-1].Index
 	threshold := 1 / math.Sqrt(maxIndex)
@@ -86,7 +84,7 @@ func (pb PBHash) Commit(docId string) {
 	for _, word := range append(randomwords, partitions...) {
 		item := pb.Index
 
-		// Can't compare based just on a single hash...
+		// Won't compare based on just a single hash...
 		if len(word) == 1 {
 			continue
 		}
@@ -97,7 +95,6 @@ func (pb PBHash) Commit(docId string) {
 			}
 
 			distance := 0.0
-
 			if level > 0 {
 				distance = word[level].Index - word[level-1].Index
 			}
@@ -121,7 +118,6 @@ func (pb PBHash) Match(docId string, index float64, hash uint32) {
 
 			for position, state := range positions {
 				actualDistance := index - position
-
 				if actualDistance/state.Distance > 1.1 {
 					delete(positions, position)
 					if len(positions) == 0 {
@@ -144,6 +140,7 @@ func (pb PBHash) Match(docId string, index float64, hash uint32) {
 					}
 				}
 
+				// We have a matching word.
 				if state.Last {
 					if _, notFirstMatch := pb.Matches[docId][matchedDocId]; !notFirstMatch {
 						pb.Matches[docId][matchedDocId] = 0
