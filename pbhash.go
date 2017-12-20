@@ -1,49 +1,48 @@
 package main
 
-import (	
-	"strings"
+import (
 	"bufio"
 	"fmt"
-	"math/rand"
 	"math"
+	"math/rand"
+	"strings"
 )
 
 type IndexEntry struct {
-	Offset uint64
+	Offset   uint64
 	Children map[uint32][]IndexEntry
-	Last bool
+	Last     bool
 }
 
 type SampledHash struct {
-	Hash uint32
+	Hash   uint32
 	Random float64
-	Index float64
+	Index  float64
 }
 
 type Flexi struct {
-	Index IndexEntry
+	Index   IndexEntry
 	Sampled map[string][]SampledHash
 }
 
 func (f Flexi) Sample(docId string, index float64, hash uint32) {
 	if hash == 0 {
 		return
-	}	
+	}
 
 	random := rand.Float64()
-
-	if random <= 1 / math.Sqrt(index) {
+	if random <= 1/math.Sqrt(index) {
 		f.Sampled[docId] = append(f.Sampled[docId], SampledHash{
-			Hash: hash,
+			Hash:   hash,
 			Random: random,
-			Index: index,
+			Index:  index,
 		})
 	}
 }
 
 func (f Flexi) Commit(docId string) {
 	hashes := []SampledHash{}
-	maxIndex := f.Sampled[docId][len(f.Sampled[docId]) - 1].Index
+	maxIndex := f.Sampled[docId][len(f.Sampled[docId])-1].Index
 	threshold := 1 / math.Sqrt(maxIndex)
 
 	for _, sampledHash := range f.Sampled[docId] {
@@ -56,11 +55,10 @@ func (f Flexi) Commit(docId string) {
 	wordCount := wordLength
 	words := make([][]SampledHash, wordCount)
 
-	for hashIndex, hash := range hashes	{
-		wordIndex := hashIndex % wordCount
+	for _, hash := range hashes {
+		wordIndex := rand.Intn(len(words) - 1)
 		words[wordIndex] = append(words[wordIndex], hash)
 	}
-
 
 	for _, word := range words {
 		item := f.Index
@@ -73,22 +71,22 @@ func (f Flexi) Commit(docId string) {
 			item.Children[sampledHash.Hash] = append(
 				item.Children[sampledHash.Hash],
 				IndexEntry{
-					Offset: uint64(sampledHash.Index),
+					Offset:   uint64(sampledHash.Index),
 					Children: map[uint32][]IndexEntry{},
-					Last: hashIndex == len(word) - 1,
+					Last:     hashIndex == len(word)-1,
 				},
 			)
 
-			item = item.Children[sampledHash.Hash][len(item.Children[sampledHash.Hash]) - 1]
-		} 
+			item = item.Children[sampledHash.Hash][len(item.Children[sampledHash.Hash])-1]
+		}
 	}
 }
 
-func (f Flexi) Match(docId string, hash uint32) {	
+func (f Flexi) Match(docId string, hash uint32) {
 	// for validNextStates in state[hash]
 }
 
-func (f Flexi) Process(docId string, reader *bufio.Reader) {	
+func (f Flexi) Process(docId string, reader *bufio.Reader) {
 	hasher := NewBuzHash(31)
 
 	f.Sampled[docId] = []SampledHash{}
@@ -102,7 +100,7 @@ func (f Flexi) Process(docId string, reader *bufio.Reader) {
 	b, err = reader.ReadByte()
 
 	for err == nil {
-		hasher.HashByte(b)	
+		hasher.HashByte(b)
 		hash = hasher.Sum32()
 
 		f.Sample(docId, index, hash)
@@ -110,7 +108,7 @@ func (f Flexi) Process(docId string, reader *bufio.Reader) {
 
 		b, err = reader.ReadByte()
 		index += 1
-	}   	
+	}
 }
 
 func main() {
@@ -119,7 +117,7 @@ func main() {
 	f := Flexi{
 		Sampled: map[string][]SampledHash{},
 		Index: IndexEntry{
-			Offset: 0,
+			Offset:   0,
 			Children: map[uint32][]IndexEntry{},
 		},
 	}
