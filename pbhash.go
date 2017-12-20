@@ -10,9 +10,9 @@ import (
 )
 
 type IndexEntry struct {
+	Level    int
 	DocId    string
 	Hash     uint32
-	Offset   float64
 	Children map[uint32]map[string]IndexEntry
 	Last     bool
 }
@@ -66,17 +66,27 @@ func (pb PBHash) Commit(docId string) {
 
 	wordLength := int(math.Sqrt(float64(len(hashes))))
 	wordCount := wordLength
-	words := make([][]SampledHash, wordCount)
+	randomwords := make([][]SampledHash, wordCount)
+
+	partitions := make([][]SampledHash, wordCount)
+	partitionSize := math.Ceil(maxIndex/float64(wordCount)) + 1
 
 	for _, hash := range hashes {
-		wordIndex := rand.Intn(len(words))
-		words[wordIndex] = append(words[wordIndex], hash)
+		wordIndex := rand.Intn(len(randomwords))
+		partition := int(math.Floor(hash.Index / partitionSize))
+		randomwords[wordIndex] = append(randomwords[wordIndex], hash)
+		partitions[partition] = append(partitions[partition], hash)
 	}
 
-	for _, word := range words {
+	for _, word := range append(randomwords, partitions...) {
 		item := pb.Index
 
-		for hashIndex, sampledHash := range word {
+		// Can't compare based just on a single hash...
+		if len(word) == 1 {
+			continue
+		}
+
+		for level, sampledHash := range word {
 			if _, ok := item.Children[sampledHash.Hash]; !ok {
 				item.Children[sampledHash.Hash] = map[string]IndexEntry{}
 			}
@@ -84,9 +94,8 @@ func (pb PBHash) Commit(docId string) {
 			item.Children[sampledHash.Hash][docId] = IndexEntry{
 				DocId:    docId,
 				Hash:     sampledHash.Hash,
-				Offset:   sampledHash.Index,
 				Children: map[uint32]map[string]IndexEntry{},
-				Last:     hashIndex == len(word)-1,
+				Last:     level == len(word)-1,
 			}
 
 			item = item.Children[sampledHash.Hash][docId]
@@ -161,21 +170,21 @@ func (pb PBHash) Process(docId string, reader *bufio.Reader) {
 }
 
 func main() {
-	reader := bufio.NewReader(strings.NewReader("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent molestie mi sed mollis hendrerit. Phasellus at vulputate sem. Nulla facilisi. Aenean vitae consectetur mauris, vitae tristique leo. Fusce eget elit felis. Vestibulum imperdiet dui et leo varius, et commodo tortor ultrices. Aliquam pharetra elementum nunc in vulputate. Vestibulum ultricies posuere suscipit. Sed a sodales mi. Curabitur ligula augue, ultricies vitae ante in, vulputate vulputate sem. Ut at tellus quam."))
-
 	pbhash := PBHash{
 		Matches: map[string]map[string]int{},
 		Random:  rand.New(rand.NewSource(time.Now().UnixNano())),
 		Sampled: map[string][]SampledHash{},
 		Index: IndexEntry{
-			Offset:   0,
 			Children: map[uint32]map[string]IndexEntry{},
 		},
 		State: map[uint32]map[string]IndexEntry{},
 	}
 
-	pbhash.Process("1234", reader)
+	pbhash.Process("1234", bufio.NewReader(strings.NewReader("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent molestie mi sed mollis hendrerit. Phasellus at vulputate sem. Nulla facilisi. Aenean vitae consectetur mauris, vitae tristique leo. Fusce eget elit felis. Vestibulum imperdiet dui et leo varius, et commodo tortor ultrices. Aliquam pharetra elementum nunc in vulputate. Vestibulum ultricies posuere suscipit. Sed a sodales mi. Curabitur ligula augue, ultricies vitae ante in, vulputate vulputate sem. Ut at tellus quam.")))
 	pbhash.Commit("1234")
+
+	pbhash.Process("5678", bufio.NewReader(strings.NewReader("Detter ")))
+	pbhash.Commit("5678")
 
 	pbhash.Process("4321", bufio.NewReader(strings.NewReader("Lorem ipsum dolor sit amet, consectetur adipiscing dasds. Praesent molestie mi sed mollis adSADzxzx<. Phasellus at vulputate sem. Nulla facilisi. Aenean vitae consectetur mauris, vitae tristique leo. Fusce eget elit felis. Vestibulum sadsadas dui et leo varius, et commodo tortor ultrices. Aliquam pharetra elementum nunc in vulputate. Vestibulum ultricies posuere suscipit. Sed a sodales mi. Curabitur ligula augue, ultricies vitae ante in, vulputate sem. Ut at tellus quam.")))
 	fmt.Println(pbhash.Matches["4321"])
