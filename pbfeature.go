@@ -32,7 +32,6 @@ func (f Feature) Compute(reader *bufio.Reader) {
   var new_diff int
   var entropy int
   var score int
-  var hash uint32
 	var v int
   i := 0
   p := 0
@@ -40,10 +39,11 @@ func (f Feature) Compute(reader *bufio.Reader) {
   max_score := 0
   max_index := 0
 
+  hashes := make([]uint32, f.Config.WindowSize)
   scores := make([]int, f.Config.WindowSize)
   counts := make([]int, f.Config.WindowSize)
 
-  hashes := []uint32{}
+  features := []uint32{}
   y := 0
 
   var k int
@@ -57,6 +57,8 @@ func (f Feature) Compute(reader *bufio.Reader) {
 			for j < v {
 				b := buf[j]
 				f.Hasher.HashByte(b)
+
+        hashes[i] = f.Hasher.Sum32()
 
         drop = f.Window[i]
         f.Window[i] = b
@@ -99,9 +101,7 @@ func (f Feature) Compute(reader *bufio.Reader) {
         counts[max_index] += 1
 
         if counts[max_index] == 16 {
-          // For commit
-          hash = f.Hasher.Sum32()
-          hashes = append(hashes, hash)
+          features = append(features, hashes[max_index])
         } else {
           y += 1
         }
@@ -121,7 +121,7 @@ func (f Feature) Compute(reader *bufio.Reader) {
 			}
 	}
 
-  log.Print(len(hashes), y, float64(len(hashes)*100)/float64(y))
+  log.Print(len(features), y, float64(len(features)*100)/float64(y))
 }
 
 func Create() Feature {
