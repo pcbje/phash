@@ -171,7 +171,7 @@ func (pb PBHash) Match(docId string, index float64, hash uint32) {
 }
 
 func (pb PBHash) Process(docId string, reader *bufio.Reader) {
-  feature := Create()
+	feature := Create()
 	_ = feature
 	pb.State = map[uint32]map[string]map[float64]IndexEntry{}
 	pb.Sampled[docId] = []SampledHash{}

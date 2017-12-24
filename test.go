@@ -4,11 +4,11 @@ import (
 	"bufio"
 	"strings"
 
-	"math/rand"
-	"time"
-	"os"
 	"io/ioutil"
 	"log"
+	"math/rand"
+	"os"
+	"time"
 )
 
 func main() {
@@ -25,7 +25,8 @@ func main() {
 
 	_ = pbhash
 
-	root := "/Users/pcbje/Downloads/t5"
+	//root := "/Users/pcbje/Downloads/t5"
+	root := "."
 	list, err := ioutil.ReadDir(root)
 	if err != nil {
 		log.Panic(err)
@@ -34,8 +35,8 @@ func main() {
 		if strings.HasPrefix(f.Name(), ".") {
 			continue
 		}
-		fp, _ := os.Open(root +"/" + f.Name())
-	 	pbhash.Process(f.Name(), bufio.NewReader(fp))
+		fp, _ := os.Open(root + "/" + f.Name())
+		pbhash.Process(f.Name(), bufio.NewReader(fp))
 		fp.Close()
 		//break
 	}
