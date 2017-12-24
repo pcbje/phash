@@ -5,7 +5,6 @@ import (
 	"log"
 )
 
-
 type Feature struct {
 	Config          Config
 	Hasher          *BuzHash

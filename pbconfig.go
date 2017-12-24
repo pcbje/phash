@@ -1,6 +1,5 @@
 package main
 
-
 func ENTROPY_SCALE() int {
 	// c.Bins * (1 << c.EntropyPower)
 	return 1024000
