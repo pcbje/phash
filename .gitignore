@@ -1,2 +1,3 @@
-*.txt
 *.gob
+.DS_Store
+hm.txt

@@ -3,7 +3,7 @@ package main
 import (
 	"bufio"
 	"strings"
-
+	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -16,6 +16,7 @@ func main() {
 		Matches: map[string]map[string]int{},
 		Random:  rand.New(rand.NewSource(time.Now().UnixNano())),
 		Sampled: map[string][]SampledHash{},
+		Committed: map[string]int{},
 		Index: IndexEntry{
 			Distance: 0,
 			Children: map[uint32]map[string]IndexEntry{},
@@ -25,22 +26,32 @@ func main() {
 
 	_ = pbhash
 
-	//root := "/Users/pcbje/Downloads/t5"
-	root := "."
+
+	root := "/Users/pcbje/Downloads/t5"
+	//root := "simple"
+	//root := "spec"
+
+
 	list, err := ioutil.ReadDir(root)
 	if err != nil {
 		log.Panic(err)
 	}
-	for _, f := range list {
+	for index, f := range list {
 		if strings.HasPrefix(f.Name(), ".") {
 			continue
 		}
+
 		fp, _ := os.Open(root + "/" + f.Name())
-		pbhash.Process(f.Name(), bufio.NewReader(fp))
+		pbhash.Process(index, f.Name(), bufio.NewReader(fp), true)
 		fp.Close()
 		//break
 	}
 
+	for docId, matches := range pbhash.Matches {
+		for matchedDocId, count := range matches {
+			fmt.Println(fmt.Sprintf("%v (%v)\t%v (%v)\t%v", docId, pbhash.Committed[docId], matchedDocId, pbhash.Committed[matchedDocId], count))
+		}
+	}
 }
 
 /*

@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"log"
+	"math/rand"
 )
 
 type Feature struct {
@@ -15,7 +16,7 @@ type Feature struct {
 	Position        int
 }
 
-func (f Feature) Compute(reader *bufio.Reader) {
+func (f Feature) Compute(index int, pb PBHash, docId string, reader *bufio.Reader, match bool) []SampledHash {
 	buf := make([]byte, 1024)
 	var drop byte
 	var old_diff int
@@ -23,17 +24,20 @@ func (f Feature) Compute(reader *bufio.Reader) {
 	var entropy int
 	var score int
 	var v int
+	var p float64
 	i := 0
-	p := 0
+	p = 0.0
 	score = 0
 	max_score := 0
 	max_index := 0
+	fs := 0.0
 
 	hashes := make([]uint32, f.Config.WindowSize)
 	scores := make([]int, f.Config.WindowSize)
 	counts := make([]int, f.Config.WindowSize)
 
-	features := []uint32{}
+	features := []SampledHash{}
+
 	y := 0
 
 	var k int
@@ -90,17 +94,26 @@ func (f Feature) Compute(reader *bufio.Reader) {
 
 			counts[max_index] += 1
 
-			if counts[max_index] == 16 {
-				features = append(features, hashes[max_index])
+			if counts[max_index] >= 16 {
+				r := rand.Float64()
+
+				if r <= 1.0/fs {
+					fs = fs + 1.0
+					features = append(features, SampledHash{
+						Hash:   hashes[max_index],
+						Random: r,
+						Index:  p,
+					})
+					counts[max_index] = -99
+				}
 			} else {
 				y += 1
 			}
 
-			/*if counts[max_index] == 8 {
+			if match && counts[max_index] == 16 {
 			  // For matching
-			  hash = f.Hasher.Sum32()
-			  _ = hash
-			}*/
+			  pb.Match(docId, p, hashes[max_index])
+			}
 
 			j++
 			i++
@@ -111,7 +124,8 @@ func (f Feature) Compute(reader *bufio.Reader) {
 		}
 	}
 
-	log.Print(len(features), y, float64(len(features)*100)/float64(y))
+	log.Print(index, match, len(features), y, float64(len(features)*100)/float64(y))
+	return features
 }
 
 func Create() Feature {

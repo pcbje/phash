@@ -27,28 +27,12 @@ type SampledHash struct {
 type PBHash struct {
 	Index   IndexEntry
 	Sampled map[string][]SampledHash
+	Committed map[string]int
 	Matches map[string]map[string]int
 	State   map[uint32]map[string]map[float64]IndexEntry
 	Random  *rand.Rand
 }
 
-func (pb PBHash) Sample(docId string, index float64, hash uint32) {
-	var random float64
-
-	if pb.Random == nil {
-		random = rand.Float64()
-	} else {
-		random = pb.Random.Float64()
-	}
-
-	if random <= 1/math.Sqrt(index) {
-		pb.Sampled[docId] = append(pb.Sampled[docId], SampledHash{
-			Hash:   hash,
-			Random: random,
-			Index:  index,
-		})
-	}
-}
 
 func (pb PBHash) Commit(docId string) {
 	if len(pb.Sampled[docId]) == 0 {
@@ -56,44 +40,48 @@ func (pb PBHash) Commit(docId string) {
 		return
 	}
 
-	hashes := []SampledHash{}
-	maxIndex := pb.Sampled[docId][len(pb.Sampled[docId])-1].Index
-	threshold := 1 / math.Sqrt(maxIndex)
+	hashes := pb.Sampled[docId]
 
-	for _, sampledHash := range pb.Sampled[docId] {
-		if sampledHash.Random <= threshold {
-			hashes = append(hashes, sampledHash)
-		}
-	}
-
-	wordLength := int(math.Sqrt(float64(len(hashes))))
-	wordCount := wordLength
+	threshold := 1.0 / float64(len(pb.Sampled[docId]))
+	wordLength := int(math.Sqrt(math.Sqrt(float64(len(hashes) / 2))))
+	wordCount := (len(hashes) / 2) / wordLength
 	randomwords := make([][]SampledHash, wordCount)
+	partitionSize := math.Max(1, math.Sqrt(float64(len(hashes) / 2)))
+	partitions := make([][]SampledHash, int(partitionSize))
 
-	partitions := make([][]SampledHash, wordCount)
-	partitionSize := math.Ceil(maxIndex/float64(wordCount)) + 1
-
+	var w uint32
+	w = uint32(len(randomwords))
+	var i float64
+	i = 0
 	for _, hash := range hashes {
-		wordIndex := rand.Intn(len(randomwords))
-		partition := int(math.Floor(hash.Index / partitionSize))
+		if hash.Random > threshold {
+			continue
+		}
+
+		wordIndex := hash.Hash % w
+		partition := int(math.Min(float64(len(partitions) - 1), math.Floor(i / partitionSize)))
 		randomwords[wordIndex] = append(randomwords[wordIndex], hash)
 		partitions[partition] = append(partitions[partition], hash)
+		i += 1
 	}
 
+	cw := 0
 	for _, word := range append(randomwords, partitions...) {
 		item := pb.Index
 
 		// Won't compare based on just a single hash...
-		if len(word) == 1 {
+		if len(word) <= 1 {
 			continue
 		}
 
+		cw += 1
 		for level, sampledHash := range word {
 			if _, ok := item.Children[sampledHash.Hash]; !ok {
 				item.Children[sampledHash.Hash] = map[string]IndexEntry{}
 			}
+			_ = level
 
-			distance := 0.0
+			/*distance := 0.0
 			if level > 0 {
 				distance = word[level].Index - word[level-1].Index
 			}
@@ -104,11 +92,14 @@ func (pb PBHash) Commit(docId string) {
 				Distance: distance,
 				Children: map[uint32]map[string]IndexEntry{},
 				Last:     level == len(word)-1,
-			}
+				Level: level,
+			}*/
 
-			item = item.Children[sampledHash.Hash][docId]
+			//item = item.Children[sampledHash.Hash][docId]
 		}
 	}
+
+	pb.Committed[docId] = cw
 }
 
 func (pb PBHash) Match(docId string, index float64, hash uint32) {
@@ -116,6 +107,8 @@ func (pb PBHash) Match(docId string, index float64, hash uint32) {
 		for matchedDocId, positions := range pb.State[hash] {
 
 			for position, state := range positions {
+				_ = position
+				//fmt.Println(state.Level)
 				actualDistance := index - position
 				if actualDistance/state.Distance > 1.1 {
 					delete(positions, position)
@@ -146,8 +139,11 @@ func (pb PBHash) Match(docId string, index float64, hash uint32) {
 					}
 
 					pb.Matches[docId][matchedDocId] = pb.Matches[docId][matchedDocId] + 1
+					delete(pb.State, state.Hash)
+					//log.Println("> match: " + docId + " = " + matchedDocId, pb.Matches[docId][matchedDocId])
 				}
 			}
+
 		}
 	}
 
@@ -170,14 +166,15 @@ func (pb PBHash) Match(docId string, index float64, hash uint32) {
 	}
 }
 
-func (pb PBHash) Process(docId string, reader *bufio.Reader) {
+func (pb PBHash) Process(index int, docId string, reader *bufio.Reader, match bool) {
 	feature := Create()
 	_ = feature
 	pb.State = map[uint32]map[string]map[float64]IndexEntry{}
 	pb.Sampled[docId] = []SampledHash{}
 	pb.Matches[docId] = map[string]int{}
 
-	feature.Compute(reader)
+	pb.Sampled[docId] = feature.Compute(index, pb, docId, reader, match)
+  pb.Commit(docId)
 
 	//fmt.Println(docId)
 }
