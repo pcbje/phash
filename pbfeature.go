@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"log"
 	"math/rand"
+	"fmt"
 )
 
 type Feature struct {
@@ -32,6 +33,8 @@ func (f Feature) Compute(index int, pb PBHash, docId string, reader *bufio.Reade
 	max_index := 0
 	fs := 0.0
 
+	ws := float64(f.Config.WindowSize)
+
 	hashes := make([]uint32, f.Config.WindowSize)
 	scores := make([]int, f.Config.WindowSize)
 	counts := make([]int, f.Config.WindowSize)
@@ -40,6 +43,7 @@ func (f Feature) Compute(index int, pb PBHash, docId string, reader *bufio.Reade
 	features := []SampledHash{}
 
 	y := 0
+	_ = fmt.Println
 
 	var k int
 	for {
@@ -53,13 +57,19 @@ func (f Feature) Compute(index int, pb PBHash, docId string, reader *bufio.Reade
 			b := buf[j]
 			f.Hasher.HashByte(b)
 
+
+
 			hashes[i] = f.Hasher.Sum32()
+
+			if p > 390 && p < 410 {
+				fmt.Println(docId, hashes[i], b)
+			}
 
 			drop = f.Window[i]
 			f.Window[i] = b
 
 			old_diff = 0
-			if f.Ascii[drop] > 0 {
+			if p >= ws {
 				f.Ascii[drop] = f.Ascii[drop] - 1
 				old_diff = f.Config.Entropy64[f.Ascii[drop]+1] - f.Config.Entropy64[f.Ascii[drop]]
 			}
@@ -95,13 +105,13 @@ func (f Feature) Compute(index int, pb PBHash, docId string, reader *bufio.Reade
 
 			counts[max_index] += 1
 
-			if match && counts[max_index] == 16 {
-				//log.Print(docId, " ", hashes[max_index])
-			  // For matching
-			  pb.Match(docId, p, hashes[max_index])
+
+
+			if counts[max_index] == 16 {
+				pb.Match(docId, p, hashes[max_index])
 			}
 
-			if counts[max_index] >= 16 {
+			if counts[max_index] == 16 {
 				r := rand.Float64()
 
 				if r <= 1.0/fs {
@@ -117,10 +127,11 @@ func (f Feature) Compute(index int, pb PBHash, docId string, reader *bufio.Reade
 							Random: r,
 							Index:  p,
 						})
+
 						m[hashes[max_index]] += 1
 					}
 
-					counts[max_index] = -99
+					//counts[max_index] = -99
 				}
 			} else {
 				y += 1
@@ -134,6 +145,8 @@ func (f Feature) Compute(index int, pb PBHash, docId string, reader *bufio.Reade
 			}
 		}
 	}
+
+	fmt.Println("")
 
 	log.Print(index, match, len(features), y, float64(len(features)*100)/float64(y))
 	return features

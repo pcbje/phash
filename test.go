@@ -25,9 +25,9 @@ func main() {
 	_ = pbhash
 
 
-	root := "/Users/pcbje/Downloads/t5"
+	//root := "/Users/pcbje/Downloads/t5"
 	//root := "simple"
-	//root := "text"
+	root := "text"
 
 
 	list, err := ioutil.ReadDir(root)

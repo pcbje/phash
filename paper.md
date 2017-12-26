@@ -15,3 +15,7 @@ At any position in a file, there is a number of accepted hashes. Each accepted h
 If we call how far in a word matching as come as a "run", we expect the distribution of run lengths to be skewed towards low (experiment). This means that it is not necessary to keep the deeper (suffix) levels of words in memory. This should enable both memory and speed efficiency at scale.
 Prefix in memory
 Suffix on disk
+
+
+
+iMatch: Based on frequency of signatures, not suited for embeddedness
