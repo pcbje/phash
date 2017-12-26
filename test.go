@@ -27,7 +27,7 @@ func main() {
 
 	root := "/Users/pcbje/Downloads/t5"
 	//root := "simple"
-	//root := "spec"
+	//root := "text"
 
 
 	list, err := ioutil.ReadDir(root)
@@ -51,9 +51,9 @@ func main() {
 		}
 	}
 
-	for level, count := range pbhash.LevelCount{
-			fmt.Println(fmt.Sprintf("%v\t%v", level, count))
-	}
+	//for level, count := range pbhash.LevelCount{
+	//		fmt.Println(fmt.Sprintf("%v\t%v", level, count))
+	//}
 }
 
 /*

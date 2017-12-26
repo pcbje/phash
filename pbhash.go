@@ -71,8 +71,8 @@ func (pb PBHash) Commit(docId string) {
 	for _, word := range append(randomwords, partitions...) {
 		//item := pb.Index
 
-		// Won't compare based on just a single hash...
-		if len(word) <= 1 {
+		// Won't compare short words...
+		if len(word) < 3 {
 			continue
 		}
 
@@ -155,7 +155,8 @@ func (pb PBHash) Match(docId string, index float64, ihash uint32) {
 			}
 
 			if isLast {
-				//log.Print("Match!")
+				pb.Matches[docId][matchDocId] += 1
+				delete(pb.State[hash], thisKey)
 			}
 
 			for nextKeyStr, nextIsLast := range pb.Keys[matchKey] {

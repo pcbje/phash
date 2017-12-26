@@ -95,7 +95,13 @@ func (f Feature) Compute(index int, pb PBHash, docId string, reader *bufio.Reade
 
 			counts[max_index] += 1
 
-			if counts[max_index] >= 32 {
+			if match && counts[max_index] == 16 {
+				//log.Print(docId, " ", hashes[max_index])
+			  // For matching
+			  pb.Match(docId, p, hashes[max_index])
+			}
+
+			if counts[max_index] >= 16 {
 				r := rand.Float64()
 
 				if r <= 1.0/fs {
@@ -105,7 +111,7 @@ func (f Feature) Compute(index int, pb PBHash, docId string, reader *bufio.Reade
 						m[hashes[max_index]] = 0
 					}
 
-					if m[hashes[max_index]] <= 2 {
+					if m[hashes[max_index]] < 1 {
 						features = append(features, SampledHash{
 							Hash:   hashes[max_index],
 							Random: r,
@@ -118,11 +124,6 @@ func (f Feature) Compute(index int, pb PBHash, docId string, reader *bufio.Reade
 				}
 			} else {
 				y += 1
-			}
-
-			if match && counts[max_index] == 32 {
-			  // For matching
-			  pb.Match(docId, p, hashes[max_index])
 			}
 
 			j++
