@@ -9,9 +9,10 @@ import (
 	"math/rand"
 	"os"
 	"time"
+	"testing"
 )
 
-func main() {
+func TestT5(t *testing.T) {
 	pbhash := PBHash{
 		Matches: map[string]map[string]int{},
 		Random:  rand.New(rand.NewSource(time.Now().UnixNano())),
@@ -50,6 +51,10 @@ func main() {
 			fmt.Println(fmt.Sprintf("%v (%v)\t%v (%v)\t%v", docId, pbhash.Committed[docId], matchedDocId, pbhash.Committed[matchedDocId], count))
 		}
 	}
+}
+
+func main() {
+
 
 	//for level, count := range pbhash.LevelCount{
 	//		fmt.Println(fmt.Sprintf("%v\t%v", level, count))

@@ -176,7 +176,7 @@ func (f Feature) Compute(index int, pb PBHash, docId string, reader *bufio.Reade
 
 
 			if counts[max_index] == 8 {
-				//pb.Match(docId, p, hashes[max_index])
+				pb.Match(docId, p, hashes[max_index])
 			}
 
 			if counts[max_index] == 8 {
