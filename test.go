@@ -17,11 +17,9 @@ func main() {
 		Random:  rand.New(rand.NewSource(time.Now().UnixNano())),
 		Sampled: map[string][]SampledHash{},
 		Committed: map[string]int{},
-		Index: IndexEntry{
-			Distance: 0,
-			Children: map[uint32]map[string]IndexEntry{},
-		},
-		State: map[uint32]map[string]map[float64]IndexEntry{},
+		Keys: map[string]map[string]bool{},
+		LevelCount: map[string]int{},
+		State: map[string]map[string]bool{},
 	}
 
 	_ = pbhash
@@ -51,6 +49,10 @@ func main() {
 		for matchedDocId, count := range matches {
 			fmt.Println(fmt.Sprintf("%v (%v)\t%v (%v)\t%v", docId, pbhash.Committed[docId], matchedDocId, pbhash.Committed[matchedDocId], count))
 		}
+	}
+
+	for level, count := range pbhash.LevelCount{
+			fmt.Println(fmt.Sprintf("%v\t%v", level, count))
 	}
 }
 

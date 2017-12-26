@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-
+	"strings"
 	"log"
+	"strconv"
 )
 
 type IndexEntry struct {
@@ -14,7 +15,6 @@ type IndexEntry struct {
 	DocId    string
 	Hash     uint32
 	Distance float64
-	Children map[uint32]map[string]IndexEntry
 	Last     bool
 }
 
@@ -29,7 +29,9 @@ type PBHash struct {
 	Sampled map[string][]SampledHash
 	Committed map[string]int
 	Matches map[string]map[string]int
-	State   map[uint32]map[string]map[float64]IndexEntry
+	State   map[string]map[string]bool
+	Keys 		map[string]map[string]bool
+	LevelCount   map[string]int
 	Random  *rand.Rand
 }
 
@@ -67,7 +69,7 @@ func (pb PBHash) Commit(docId string) {
 
 	cw := 0
 	for _, word := range append(randomwords, partitions...) {
-		item := pb.Index
+		//item := pb.Index
 
 		// Won't compare based on just a single hash...
 		if len(word) <= 1 {
@@ -75,93 +77,126 @@ func (pb PBHash) Commit(docId string) {
 		}
 
 		cw += 1
-		for level, sampledHash := range word {
-			if _, ok := item.Children[sampledHash.Hash]; !ok {
-				item.Children[sampledHash.Hash] = map[string]IndexEntry{}
-			}
-			_ = level
+		level := len(word) - 1
+		var key string
+		var pkey string
+		pkey = ""
+		var index float64
+		var distance float64
+		var sampledHash SampledHash
+		for level > -1 {
+			sampledHash = word[level]
 
-			/*distance := 0.0
+			index = 0.0
+			distance = 0.0
+
 			if level > 0 {
+				index = sampledHash.Index
 				distance = word[level].Index - word[level-1].Index
+				key = fmt.Sprintf("%v\x00%v\x00%v\x00%v\x00%v", sampledHash.Hash, docId, index, distance, level)
+			} else {
+				key = fmt.Sprintf("%v", sampledHash.Hash)
 			}
 
-			item.Children[sampledHash.Hash][docId] = IndexEntry{
-				DocId:    docId,
-				Hash:     sampledHash.Hash,
-				Distance: distance,
-				Children: map[uint32]map[string]IndexEntry{},
-				Last:     level == len(word)-1,
-				Level: level,
-			}*/
+			if _, ok := pb.Keys[key]; !ok {
+				pb.Keys[key] = map[string]bool{}
+			}
 
-			//item = item.Children[sampledHash.Hash][docId]
+			if pkey != "" && level < len(word)-1 {
+				pb.Keys[key][pkey] = level == len(word)-2
+			}
+
+			pkey = key
+			level -= 1
 		}
 	}
 
 	pb.Committed[docId] = cw
 }
 
-func (pb PBHash) Match(docId string, index float64, hash uint32) {
+func (pb PBHash) Match(docId string, index float64, ihash uint32) {
+	hash := fmt.Sprintf("%v", ihash)
+
+	var parts []string
+
+	var matchDocId string
+	var matchIndex float64
+	var matchDistance float64
+	var matchLevel string
+	var matchKey string
+
+	var nextHash string
+	var nextDocId string
+	var nextIndex string
+	var nextDistance string
+	var nextLevel string
+	var nextKey string
+
 	if _, ok := pb.State[hash]; ok {
-		for matchedDocId, positions := range pb.State[hash] {
 
-			for position, state := range positions {
-				_ = position
-				//fmt.Println(state.Level)
-				actualDistance := index - position
-				if actualDistance/state.Distance > 1.1 {
-					delete(positions, position)
-					if len(positions) == 0 {
-						delete(pb.State, hash)
-					}
-					continue
+		for thisKey, isLast := range pb.State[hash] {
+			parts = strings.Split(thisKey, "\x00")
+			matchDocId = parts[0]
+			matchIndex, _ = strconv.ParseFloat(parts[1], 64)
+			matchDistance, _ = strconv.ParseFloat(parts[2], 64)
+			matchLevel = parts[3]
+
+			pb.LevelCount[matchLevel] += 1
+
+			matchKey = fmt.Sprintf("%v\x00%v\x00%v\x00%v\x00%v", hash, matchDocId, matchIndex, matchDistance, matchLevel)
+
+			actualDistance := index - matchIndex
+			if actualDistance/matchDistance > 1.1 {
+				delete(pb.Keys[hash], thisKey)
+				if len(pb.Keys[hash]) == 0 {
+					delete(pb.Keys, matchKey)
 				}
-
-				for nextHash, nextStates := range state.Children {
-					if _, hasHash := pb.State[nextHash]; !hasHash {
-						pb.State[nextHash] = map[string]map[float64]IndexEntry{}
-					}
-
-					for _, nextState := range nextStates {
-						if _, hasDoc := pb.State[nextHash][nextState.DocId]; !hasDoc {
-							pb.State[nextHash][nextState.DocId] = map[float64]IndexEntry{}
-						}
-
-						pb.State[nextHash][nextState.DocId][index] = nextState
-					}
-				}
-
-				// We have a matching word.
-				if state.Last {
-					if _, notFirstMatch := pb.Matches[docId][matchedDocId]; !notFirstMatch {
-						pb.Matches[docId][matchedDocId] = 0
-					}
-
-					pb.Matches[docId][matchedDocId] = pb.Matches[docId][matchedDocId] + 1
-					delete(pb.State, state.Hash)
-					//log.Println("> match: " + docId + " = " + matchedDocId, pb.Matches[docId][matchedDocId])
-				}
+				continue
 			}
 
+			if isLast {
+				//log.Print("Match!")
+			}
+
+			for nextKeyStr, nextIsLast := range pb.Keys[matchKey] {
+				parts = strings.Split(nextKeyStr, "\x00")
+				nextHash = parts[0]
+				nextDocId = parts[1]
+				nextIndex = parts[2]
+				nextDistance = parts[3]
+				nextLevel = parts[4]
+
+				nextKey = fmt.Sprintf("%v\x00%v\x00%v\x00%v", nextDocId, nextIndex, nextDistance, nextLevel)
+
+				if _, ok := pb.State[nextHash]; !ok {
+						pb.State[nextHash] = map[string]bool{}
+				}
+
+				pb.State[nextHash][nextKey] = nextIsLast
+			}
 		}
-	}
+}
 
-	if _, ok := pb.Index.Children[hash]; ok {
-		for _, state := range pb.Index.Children[hash] {
-			for nextHash, nextStates := range state.Children {
-				for _, nextState := range nextStates {
-					if _, hasHash := pb.State[nextHash]; !hasHash {
-						pb.State[nextHash] = map[string]map[float64]IndexEntry{}
-					}
+	if _, ok := pb.Keys[hash]; ok {
 
-					if _, hasDoc := pb.State[nextHash][nextState.DocId]; !hasDoc {
-						pb.State[nextHash][nextState.DocId] = map[float64]IndexEntry{}
-					}
+		for nextKey, nextIsLast := range pb.Keys[hash] {
+			parts = strings.Split(nextKey, "\x00")
+			// sampledHash.Hash, docId, index, distance, level
+			nextHash = parts[0]
+			nextDocId = parts[1]
+			nextIndex = parts[2]
+			nextDistance = parts[3]
+			nextLevel = parts[4]
 
-					pb.State[nextHash][nextState.DocId][index] = nextState
-				}
+			pb.LevelCount["0"] += 1
+
+			if _, ok := pb.State[nextHash]; !ok {
+					pb.State[nextHash] = map[string]bool{}
 			}
+
+			nextKey = fmt.Sprintf("%v\x00%v\x00%v\x00%v", nextDocId, nextIndex, nextDistance, nextLevel)
+
+			pb.State[nextHash][nextKey] = nextIsLast
 		}
 	}
 }
@@ -169,7 +204,7 @@ func (pb PBHash) Match(docId string, index float64, hash uint32) {
 func (pb PBHash) Process(index int, docId string, reader *bufio.Reader, match bool) {
 	feature := Create()
 	_ = feature
-	pb.State = map[uint32]map[string]map[float64]IndexEntry{}
+	pb.State = map[string]map[string]bool{}
 	pb.Sampled[docId] = []SampledHash{}
 	pb.Matches[docId] = map[string]int{}
 
