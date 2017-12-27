@@ -178,7 +178,7 @@ func (pb *PBHash) GetFeatures(index int, docId string, reader *bufio.Reader, mat
 
 func (pb *PBHash) CommitFeatures(docId string, features []Feature) {
 	var (
-		expectedFactor       float64     = 1.5
+		expectedFactor       float64     = math.Sqrt(2)
 		minWordLength        int         = 5
 		expectedFeatureCount float64     = float64(len(features)) / expectedFactor
 		wordLength           float64     = math.Max(float64(minWordLength), math.Sqrt(math.Sqrt(expectedFeatureCount)))
