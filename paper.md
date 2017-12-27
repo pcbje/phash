@@ -19,3 +19,45 @@ Suffix on disk
 
 
 iMatch: Based on frequency of signatures, not suited for embeddedness
+
+PHASH: Probabilistic multi-pattern approximate matching
+
+* Introduction
+  * Applications
+  * Limitations
+
+* Related work
+  * Approximate matching
+    * Hamming distance
+    * Levenshtein distance
+    * ssdeep
+    * sdhash
+  * Multi-pattern matching
+    * Aho-Corasick
+    * Wu-Manber
+  * Approximate multi-pattern Matching
+    * iMatch
+    * Levenshtein automata
+    * Locality-sensitive hashing (annoy)
+
+* PHASH: Probabilistic multi-pattern approximate matching
+
+* Experimental setup
+  * Establishing a t5 ground truth
+      * A/B similarity
+      * A/B embeddedness
+      * B/A embeddedness
+  * pbhash parameters
+    * window size
+    * poplularity threshold
+    * minimum word length (based on average run length)
+
+* Experimental results
+  * Parameters: precision/recall against ground truth / speed / memory
+  * Algorithms: sdhash, ssdeep, imatch, pbhash
+
+* Discussion
+  * Probably not well suited for compressed data
+  * Perceptual matching
+
+* Subjects for further research

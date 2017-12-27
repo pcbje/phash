@@ -2,3 +2,5 @@
 .DS_Store
 hm.txt
 *.test
+t5-gold
+res.txt

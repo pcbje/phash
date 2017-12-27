@@ -17,29 +17,6 @@ type Config struct {
 	Entropy64    []int
 }
 
-func GetConfig() Config {
-	return Config{
-		WindowSize:   64,
-		Bins:         1000,
-		EntropyPower: 10,
-		/*
-			i := 1
-			for i < c.WindowSize {
-				p := float64(i) / float64(c.WindowSize)
-				c.Entropy64[i] = int((-p * math.Log2(p) / 6) * float64(c.EntropyScale))
-				i += 1
-			}
-		*/
-		Entropy64: []int{0, 16000, 26666, 35320, 42666, 49040, 54640, 59596, 64000, 67921, 71415, 74523, 77281,
-			79718, 81858, 83724, 85333, 86701, 87843, 88771, 89497, 90030, 90380, 90554, 90562, 90409, 90102,
-			89648, 89050, 88316, 87448, 86453, 85333, 84093, 82736, 81266, 79687, 78000, 76210, 74318, 72327,
-			70240, 68060, 65788, 63426, 60977, 58443, 55824, 53124, 50344, 47485, 44550, 41539, 38453, 35296,
-			32067, 28768, 25400, 21965, 18464, 14897, 11266, 7572, 3816, 0},
-		// c.Bins * (1 << c.EntropyPower)
-		EntropyScale: 1024000,
-	}
-}
-
 type IndexEntry struct {
 	Level    int
 	DocId    string
@@ -224,8 +201,9 @@ func (pb PBHash) Commit(docId string) {
 	wordLength := int(math.Sqrt(math.Sqrt(float64(len(hashes) / 2))))
 	wordCount := (len(hashes) / 2) / wordLength
 	randomwords := make([][]SampledHash, wordCount)
-	partitionSize := math.Max(1, float64(wordLength))
-	partitions := make([][]SampledHash, int(partitionSize))
+	partitionSize := math.Max(4, float64(wordLength))
+	partitionCount := (len(hashes) / 2) / int(partitionSize)
+	partitions := make([][]SampledHash, partitionCount)
 
 	var w uint32
 	w = uint32(len(randomwords))
@@ -239,7 +217,10 @@ func (pb PBHash) Commit(docId string) {
 		wordIndex := hash.Hash % w
 		partition := int(math.Min(float64(len(partitions)-1), math.Floor(i/partitionSize)))
 		randomwords[wordIndex] = append(randomwords[wordIndex], hash)
-		partitions[partition] = append(partitions[partition], hash)
+
+		if len(partitions) > 1 {
+			partitions[partition] = append(partitions[partition], hash)
+		}
 		i += 1
 	}
 
@@ -331,6 +312,9 @@ func (pb PBHash) Match(docId string, index float64, ihash uint32) {
 				}
 
 				pb.State[*nextTr][*&next] = false
+
+				// Allow same transition multiple times?
+				delete(pb.State[*hash], *&transition)
 			}
 		}
 	}
@@ -364,7 +348,26 @@ func (pb PBHash) Process(index int, docId string, reader *bufio.Reader, match bo
 func Create() Feature {
 	_ = log.Print
 
-	c := GetConfig()
+	c := Config{
+		WindowSize:   64,
+		Bins:         1000,
+		EntropyPower: 10,
+		/*
+			i := 1
+			for i < c.WindowSize {
+				p := float64(i) / float64(c.WindowSize)
+				c.Entropy64[i] = int((-p * math.Log2(p) / 6) * float64(c.EntropyScale))
+				i += 1
+			}
+		*/
+		Entropy64: []int{0, 16000, 26666, 35320, 42666, 49040, 54640, 59596, 64000, 67921, 71415, 74523, 77281,
+			79718, 81858, 83724, 85333, 86701, 87843, 88771, 89497, 90030, 90380, 90554, 90562, 90409, 90102,
+			89648, 89050, 88316, 87448, 86453, 85333, 84093, 82736, 81266, 79687, 78000, 76210, 74318, 72327,
+			70240, 68060, 65788, 63426, 60977, 58443, 55824, 53124, 50344, 47485, 44550, 41539, 38453, 35296,
+			32067, 28768, 25400, 21965, 18464, 14897, 11266, 7572, 3816, 0},
+		// c.Bins * (1 << c.EntropyPower)
+		EntropyScale: 1024000,
+	}
 
 	return Feature{
 		Config:          c,

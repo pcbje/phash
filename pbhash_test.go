@@ -25,9 +25,9 @@ func TestT5(t *testing.T) {
 
 	_ = pbhash
 
-	//root := "/Users/pcbje/Downloads/t5"
+	root := "/Users/pcbje/Downloads/t5"
 	//root := "tests/spec"
-	root := "tests/ppt"
+	//root := "tests/ppt"
 
 	t.Fail()
 	list, err := ioutil.ReadDir(root)
@@ -55,21 +55,4 @@ func TestT5(t *testing.T) {
 
 func main() {
 
-	//for level, count := range pbhash.LevelCount{
-	//		fmt.Println(fmt.Sprintf("%v\t%v", level, count))
-	//}
 }
-
-/*
-pbhash.Process("1234", bufio.NewReader(strings.NewReader("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent molestie mi sed mollis hendrerit. Phasellus at vulputate sem. Nulla facilisi. Aenean vitae consectetur mauris, vitae tristique leo. Fusce eget elit felis. Vestibulum imperdiet dui et leo varius, et commodo tortor ultrices. Aliquam pharetra elementum nunc in vulputate. Vestibulum ultricies posuere suscipit. Sed a sodales mi. Curabitur ligula augue, ultricies vitae ante in, vulputate vulputate sem. Ut at tellus quam.")))
-pbhash.Commit("1234")
-
-pbhash.Process("5678", bufio.NewReader(strings.NewReader("Detter ")))
-pbhash.Commit("5678")
-
-pbhash.Process("4321", bufio.NewReader(strings.NewReader("Lorem ipsum dolor sit amet, consectetur adipiscing dasds. Praesent molestie mi sed mollis adSADzxzx<. Phasellus at vulputate sem. Nulla facilisi. Aenean vitae consectetur mauris, vitae tristique leo. Fusce eget elit felis. Vestibulum sadsadas dui et leo varius, et commodo tortor ultrices. Aliquam pharetra elementum nunc in vulputate. Vestibulum ultricies posuere suscipit. Sed a sodales mi. Curabitur ligula augue, ultricies vitae ante in, vulputate sem. Ut at tellus quam.")))
-fmt.Println(pbhash.Matches["4321"])
-
-pbhash.Process("0000", bufio.NewReader(strings.NewReader("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent molestie mi sed mollis hendrerit. Phasellus at vulputate sem. Nulla facilisi. Aenean vitae consectetur mauris, vitae tristique leo. Fusce eget elit felis. ")))
-fmt.Println(pbhash.Matches["0000"])
-*/
