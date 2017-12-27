@@ -17,7 +17,7 @@ Prefix in memory
 Suffix on disk
 
 
-
+sdhash: http://roussev.net/sdhash/tutorial/05-advanced.html (120 sec to match)
 iMatch: Based on frequency of signatures, not suited for embeddedness
 
 PHASH: Probabilistic multi-pattern approximate matching

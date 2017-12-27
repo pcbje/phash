@@ -55,7 +55,7 @@ func (pb *PBHash) GetFeatures(index int, docId string, reader *bufio.Reader, mat
 		popularWindowIndex  int     = 0
 		windowIndex         int     = 0
 		previousEntropy     int     = 0
-		popularityThreshold int     = 8
+		popularityThreshold int     = 16
 
 		ascii  []int    = make([]int, 256)
 		window []byte   = make([]byte, int(windowSize))
@@ -117,9 +117,22 @@ func (pb *PBHash) GetFeatures(index int, docId string, reader *bufio.Reader, mat
 			} else if windowIndex == popularWindowIndex {
 				// Popular index has been dropped and we need to find the new popular index.
 				popularWindowIndex = 0
-				for index, score := range scores {
-					if score > scores[popularWindowIndex] {
-						popularWindowIndex = index
+				maxDistance := windowSize - float64(popularityThreshold)
+				current := float64(windowIndex - 1)
+				currentDistance := 0.0
+				for currentDistance < maxDistance {
+					current--
+
+					if current < 0 {
+						current =  windowSize - 1
+					}
+
+					currentDistance++;
+
+					reachableScore := scores[int(current)] + int(currentDistance)
+
+					if scores[int(current)] > scores[popularWindowIndex] && reachableScore >= popularityThreshold {
+						popularWindowIndex = int(current)
 					}
 				}
 			}
@@ -182,10 +195,13 @@ func (pb *PBHash) CommitFeatures(docId string, features []Feature) {
 			continue
 		}
 
-		partition = math.Floor(i / partitionSize)
-		partition = math.Min(partition, partitionCount-1)
+		if partitionCount > 0 {
+			partition = math.Floor(i / partitionSize)
+			partition = math.Max(0, math.Min(partition, partitionCount-1))
 
-		partitions[int(partition)] = append(partitions[int(partition)], hash)
+			partitions[int(partition)] = append(partitions[int(partition)], hash)
+		}
+		
 		randomwords[int(i)%w] = append(randomwords[int(i)%w], hash)
 
 		i += 1
