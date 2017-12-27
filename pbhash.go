@@ -25,13 +25,13 @@ type Transition struct {
 type PBHash struct {
 	Committed  map[string]int
 	Matches    map[string]map[string]int
-	State      map[Transition]map[Transition]bool
+	State      map[string]map[Transition]map[Transition]bool
 	Keys       map[Transition]map[Transition]bool
 	LevelCount map[int]int
 	Random     *rand.Rand
 }
 
-func (f PBHash) GetFeatures(index int, pb PBHash, docId string, reader *bufio.Reader, match bool) []Feature {
+func (pb *PBHash) GetFeatures(index int, docId string, reader *bufio.Reader, match bool) []Feature {
 	/*
 		entropyScale := bins << entropyPower (1024000)
 		i := 1
@@ -50,8 +50,8 @@ func (f PBHash) GetFeatures(index int, pb PBHash, docId string, reader *bufio.Re
 
 	var (
 		windowSize          float64 = 64.0
-		entropyPower        uint32  = 10
 		fileIndex           float64 = 0.0
+		entropyPower        uint32  = 10
 		popularWindowIndex  int     = 0
 		windowIndex         int     = 0
 		previousEntropy     int     = 0
@@ -65,8 +65,13 @@ func (f PBHash) GetFeatures(index int, pb PBHash, docId string, reader *bufio.Re
 		buffer []byte   = make([]byte, 1024)
 
 		features []Feature = []Feature{}
-		hasher   *BuzHash  = NewBuzHash(uint32(16))
+		hasher   *BuzHash  = NewBuzHash(uint32(31))
 	)
+
+	pb.Matches[docId] = map[string]int{}
+	pb.State[docId] = map[Transition]map[Transition]bool{}
+
+	seenHashes := map[uint32]bool{}
 
 	for {
 		readLength, _ := reader.Read(buffer)
@@ -102,6 +107,7 @@ func (f PBHash) GetFeatures(index int, pb PBHash, docId string, reader *bufio.Re
 			counts[windowIndex] = 0
 			scores[windowIndex] = entropy >> entropyPower
 
+			// Ignore very low and very high ([0, 1000]) entropy windows.
 			if scores[windowIndex] < 100 || scores[windowIndex] > 980 {
 				scores[windowIndex] = 0
 			}
@@ -109,6 +115,7 @@ func (f PBHash) GetFeatures(index int, pb PBHash, docId string, reader *bufio.Re
 			if scores[windowIndex] > scores[popularWindowIndex] {
 				popularWindowIndex = windowIndex
 			} else if windowIndex == popularWindowIndex {
+				// Popular index has been dropped and we need to find the new popular index.
 				popularWindowIndex = 0
 				for index, score := range scores {
 					if score > scores[popularWindowIndex] {
@@ -122,14 +129,17 @@ func (f PBHash) GetFeatures(index int, pb PBHash, docId string, reader *bufio.Re
 			if counts[popularWindowIndex] == popularityThreshold {
 				pb.Match(docId, fileIndex, hashes[popularWindowIndex])
 
-				randomNumber := pb.Random.Float64()
+				if _, seenHash := seenHashes[hashes[popularWindowIndex]]; !seenHash {
+					randomNumber := pb.Random.Float64()
 
-				if randomNumber <= 1.0/float64(len(features)) {
-					features = append(features, Feature{
-						Hash:   hashes[popularWindowIndex],
-						Random: randomNumber,
-						Index:  fileIndex,
-					})
+					if randomNumber <= 1.0/float64(len(features)) {
+						seenHashes[hashes[popularWindowIndex]] = true
+						features = append(features, Feature{
+							Hash:   hashes[popularWindowIndex],
+							Random: randomNumber,
+							Index:  fileIndex,
+						})
+					}
 				}
 			}
 
@@ -142,11 +152,13 @@ func (f PBHash) GetFeatures(index int, pb PBHash, docId string, reader *bufio.Re
 		}
 	}
 
-	log.Print(index, match, len(features), float64(len(features)*100))
+	// Cleanup.
+	delete(pb.State, docId)
+
 	return features
 }
 
-func (pb PBHash) Commit(docId string, features []Feature) {
+func (pb *PBHash) CommitFeatures(docId string, features []Feature) {
 	if len(features) == 0 {
 		log.Print("No hashes sampled for doc: ", docId)
 		return
@@ -156,13 +168,13 @@ func (pb PBHash) Commit(docId string, features []Feature) {
 		wordLength     int         = int(math.Sqrt(math.Sqrt(float64(len(features) / 2))))
 		wordCount      int         = (len(features) / 2) / wordLength
 		threshold      float64     = 1.0 / float64(len(features))
-		partitionSize  float64     = math.Max(4, float64(wordLength))
-		partitionCount int         = (len(features) / 2) / int(partitionSize)
+		partitionCount float64     = math.Floor((float64(len(features) / 2)) / math.Max(4, float64(wordLength)))
 		randomwords    [][]Feature = make([][]Feature, wordCount)
-		partitions     [][]Feature = make([][]Feature, partitionCount)
-		w              uint32      = uint32(len(randomwords))
+		partitions     [][]Feature = make([][]Feature, int(partitionCount))
+		partitionSize  float64     = math.Ceil((float64(len(features)) / 2) / float64(partitionCount))
+		w              int         = len(randomwords)
 		i              float64     = 0
-		cw             int         = 0
+		partition      float64     = 0
 	)
 
 	for _, hash := range features {
@@ -170,13 +182,12 @@ func (pb PBHash) Commit(docId string, features []Feature) {
 			continue
 		}
 
-		wordIndex := hash.Hash % w
-		partition := int(math.Min(float64(len(partitions)-1), math.Floor(i/partitionSize)))
-		randomwords[wordIndex] = append(randomwords[wordIndex], hash)
+		partition = math.Floor(i / partitionSize)
+		partition = math.Min(partition, partitionCount-1)
 
-		if len(partitions) > 1 {
-			partitions[partition] = append(partitions[partition], hash)
-		}
+		partitions[int(partition)] = append(partitions[int(partition)], hash)
+		randomwords[int(i)%w] = append(randomwords[int(i)%w], hash)
+
 		i += 1
 	}
 
@@ -186,27 +197,29 @@ func (pb PBHash) Commit(docId string, features []Feature) {
 			continue
 		}
 
-		cw += 1
-		level := len(word) - 1
+		pb.Committed[docId]++
+
 		var key *Transition
-		var pkey *Transition
-		pkey = &Transition{DocId: docId, Last: true}
+		var pkey *Transition = &Transition{
+			DocId: docId,
+			Last:  true,
+		}
 
-		var sampledHash Feature
+		level := len(word) - 1
+
 		for level > -1 {
-			sampledHash = word[level]
-
-			if level > 0 {
+			// First key is special (hash-only to start a run)
+			if level == 0 {
 				key = &Transition{
-					Hash:     sampledHash.Hash,
-					DocId:    docId,
-					Position: sampledHash.Index,
-					Distance: word[level].Index - word[level-1].Index,
-					Level:    level,
+					Hash: word[level].Hash,
 				}
 			} else {
 				key = &Transition{
-					Hash: sampledHash.Hash,
+					Hash:     word[level].Hash,
+					DocId:    docId,
+					Position: word[level].Index,
+					Distance: word[level].Index - word[level-1].Index,
+					Level:    level,
 				}
 			}
 
@@ -214,21 +227,19 @@ func (pb PBHash) Commit(docId string, features []Feature) {
 				pb.Keys[*key] = map[Transition]bool{}
 			}
 
-			pb.Keys[*key][*pkey] = level == len(word)-2
+			pb.Keys[*key][*pkey] = false
 
 			pkey = key
-			level -= 1
+			level--
 		}
 	}
-
-	pb.Committed[docId] = cw
 }
 
-func (pb PBHash) Match(docId string, index float64, ihash uint32) {
+func (pb *PBHash) Match(docId string, index float64, ihash uint32) {
 	hash := &Transition{Hash: ihash}
 
-	if _, ok := pb.State[*hash]; ok {
-		for transition, _ := range pb.State[*hash] {
+	if _, ok := pb.State[docId][*hash]; ok {
+		for transition, _ := range pb.State[docId][*hash] {
 			pb.LevelCount[transition.Level] += 1
 
 			actualDistance := index - transition.Position
@@ -241,7 +252,7 @@ func (pb PBHash) Match(docId string, index float64, ihash uint32) {
 			}
 
 			for nextState, _ := range pb.Keys[*&transition] {
-				// Wrong doc.
+				// Wrong docId.
 				if nextState.DocId != transition.DocId {
 					log.Panic("This is not supposed to happen...")
 				}
@@ -249,20 +260,20 @@ func (pb PBHash) Match(docId string, index float64, ihash uint32) {
 				// We have a match.
 				if nextState.Last {
 					pb.Matches[docId][transition.DocId] += 1
-					delete(pb.State[*hash], *&transition)
+					delete(pb.State[docId][*hash], *&transition)
 					continue
 				}
 
 				nextTransition := &Transition{Hash: nextState.Hash}
 
-				if _, ok := pb.State[*nextTransition]; !ok {
-					pb.State[*nextTransition] = map[Transition]bool{}
+				if _, ok := pb.State[docId][*nextTransition]; !ok {
+					pb.State[docId][*nextTransition] = map[Transition]bool{}
 				}
 
-				pb.State[*nextTransition][*&nextState] = false
+				pb.State[docId][*nextTransition][*&nextState] = false
 
 				// Allow same transition multiple times?
-				delete(pb.State[*hash], *&transition)
+				delete(pb.State[docId][*hash], *&transition)
 			}
 		}
 	}
@@ -273,20 +284,11 @@ func (pb PBHash) Match(docId string, index float64, ihash uint32) {
 
 			tr := &Transition{Hash: transition.Hash}
 
-			if _, ok := pb.State[*tr]; !ok {
-				pb.State[*tr] = map[Transition]bool{}
+			if _, ok := pb.State[docId][*tr]; !ok {
+				pb.State[docId][*tr] = map[Transition]bool{}
 			}
 
-			pb.State[*tr][*&transition] = false
+			pb.State[docId][*tr][*&transition] = false
 		}
 	}
-}
-
-func (pb PBHash) Process(index int, docId string, reader *bufio.Reader, match bool) {
-	pb.State = map[Transition]map[Transition]bool{}
-
-	pb.Matches[docId] = map[string]int{}
-
-	docFeatures := pb.GetFeatures(index, pb, docId, reader, match)
-	pb.Commit(docId, docFeatures)
 }

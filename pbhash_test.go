@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"os"
 	"strings"
@@ -13,45 +12,41 @@ import (
 )
 
 func TestT5(t *testing.T) {
-	pbhash := &PBHash{
-		Matches:    map[string]map[string]int{},
+	pb := &PBHash{
 		Random:     rand.New(rand.NewSource(time.Now().UnixNano())),
+		Matches:    map[string]map[string]int{},
 		Committed:  map[string]int{},
 		Keys:       map[Transition]map[Transition]bool{},
 		LevelCount: map[int]int{},
-		State:      map[Transition]map[Transition]bool{},
+		State:      map[string]map[Transition]map[Transition]bool{},
 	}
-
-	_ = pbhash
 
 	root := "/Users/pcbje/Downloads/t5"
 	//root := "tests/spec"
-	//root := "tests/ppt"
 
-	t.Fail()
-	list, err := ioutil.ReadDir(root)
-	if err != nil {
-		log.Panic(err)
-	}
+	list, _ := ioutil.ReadDir(root)
+
 	for index, f := range list {
 		if strings.HasPrefix(f.Name(), ".") {
 			continue
 		}
 
-		fp, _ := os.Open(root + "/" + f.Name())
-		pbhash.Process(index, f.Name(), bufio.NewReader(fp), true)
-		fp.Close()
-		//break
+		filePointer, _ := os.Open(root + "/" + f.Name())
+
+		docId := f.Name()
+		reader := bufio.NewReader(filePointer)
+
+		docFeatures := pb.GetFeatures(index, docId, reader, true)
+		pb.CommitFeatures(docId, docFeatures)
+
+		filePointer.Close()
 	}
 
-	for docId, matches := range pbhash.Matches {
+	for docId, matches := range pb.Matches {
 		for matchedDocId, count := range matches {
-			fmt.Println(fmt.Sprintf("%v (%v)\t%v (%v)\t%v", docId, pbhash.Committed[docId], matchedDocId, pbhash.Committed[matchedDocId], count))
+			fmt.Println(fmt.Sprintf("%v (%v)\t%v (%v)\t%v", docId, pb.Committed[docId], matchedDocId, pb.Committed[matchedDocId], count))
 		}
 	}
 
-}
-
-func main() {
-
+	t.Fail()
 }
