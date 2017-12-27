@@ -116,9 +116,16 @@ func (pb *PBHash) GetFeatures(index int, docId string, reader *bufio.Reader, mat
 				popularWindowIndex = windowIndex
 			} else if windowIndex == popularWindowIndex {
 				// Popular index has been dropped and we need to find the new popular index.
-				popularWindowIndex = 0
+
 				maxDistance := windowSize - float64(popularityThreshold)
 				current := float64(windowIndex - 1)
+
+				if current < 0 {
+					current =  windowSize - 1
+				}
+
+				popularWindowIndex = int(current)
+
 				currentDistance := 0.0
 				for currentDistance < maxDistance {
 					current--
@@ -145,7 +152,7 @@ func (pb *PBHash) GetFeatures(index int, docId string, reader *bufio.Reader, mat
 				if _, seenHash := seenHashes[hashes[popularWindowIndex]]; !seenHash {
 					randomNumber := pb.Random.Float64()
 
-					if randomNumber <= 1.0/float64(len(features)) {
+					if randomNumber <= 1.0/math.Sqrt(float64(len(features))) {
 						seenHashes[hashes[popularWindowIndex]] = true
 						features = append(features, Feature{
 							Hash:   hashes[popularWindowIndex],
@@ -178,10 +185,11 @@ func (pb *PBHash) CommitFeatures(docId string, features []Feature) {
 	}
 
 	var (
-		wordLength     int         = int(math.Sqrt(math.Sqrt(float64(len(features) / 2))))
-		wordCount      int         = (len(features) / 2) / wordLength
-		threshold      float64     = 1.0 / float64(len(features))
-		partitionCount float64     = math.Floor((float64(len(features) / 2)) / math.Max(4, float64(wordLength)))
+
+		wordLength     int         = int(math.Max(5, math.Sqrt(math.Sqrt(float64(len(features) / 2)))))
+		wordCount      int         = int(math.Max(1, float64((len(features) / 2) / wordLength)))
+		threshold      float64     = 1.0 / math.Sqrt(float64(len(features)))
+		partitionCount float64     = math.Floor((float64(len(features) / 2)) / math.Max(5, float64(wordLength)))
 		randomwords    [][]Feature = make([][]Feature, wordCount)
 		partitions     [][]Feature = make([][]Feature, int(partitionCount))
 		partitionSize  float64     = math.Ceil((float64(len(features)) / 2) / float64(partitionCount))
@@ -201,7 +209,8 @@ func (pb *PBHash) CommitFeatures(docId string, features []Feature) {
 
 			partitions[int(partition)] = append(partitions[int(partition)], hash)
 		}
-		
+
+
 		randomwords[int(i)%w] = append(randomwords[int(i)%w], hash)
 
 		i += 1
@@ -209,7 +218,7 @@ func (pb *PBHash) CommitFeatures(docId string, features []Feature) {
 
 	for _, word := range append(randomwords, partitions...) {
 		// Won't compare short words...
-		if len(word) < 4 {
+		if len(word) < 5 {
 			continue
 		}
 

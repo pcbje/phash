@@ -17,6 +17,9 @@ with open('res.txt') as inp:
         b = parts[2].split('.')[0]
         c = parts[4]
 
+        if int(c) == 1:
+            continue
+
         if (a, b) in cache or (b, a) in cache:
             if (a, b) in cache:
                 hits[(a,b)] = int(c)
