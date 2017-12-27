@@ -2,29 +2,28 @@ package main
 
 import (
 	"bufio"
-	"strings"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
-	"time"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestT5(t *testing.T) {
 	pbhash := &PBHash{
-		Matches: map[string]map[string]int{},
-		Random:  rand.New(rand.NewSource(time.Now().UnixNano())),
-		Sampled: map[string][]SampledHash{},
-		Committed: map[string]int{},
-		Keys: map[Transition]map[Transition]bool{},
+		Matches:    map[string]map[string]int{},
+		Random:     rand.New(rand.NewSource(time.Now().UnixNano())),
+		Sampled:    map[string][]SampledHash{},
+		Committed:  map[string]int{},
+		Keys:       map[Transition]map[Transition]bool{},
 		LevelCount: map[int]int{},
-		State: map[Transition]map[Transition]bool{},
+		State:      map[Transition]map[Transition]bool{},
 	}
 
 	_ = pbhash
-
 
 	//root := "/Users/pcbje/Downloads/t5"
 	//root := "tests/spec"
@@ -52,11 +51,9 @@ func TestT5(t *testing.T) {
 		}
 	}
 
-
 }
 
 func main() {
-
 
 	//for level, count := range pbhash.LevelCount{
 	//		fmt.Println(fmt.Sprintf("%v\t%v", level, count))

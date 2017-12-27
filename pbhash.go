@@ -30,7 +30,7 @@ func GetConfig() Config {
 				i += 1
 			}
 		*/
-		Entropy64:    []int{0, 16000, 26666, 35320, 42666, 49040, 54640, 59596, 64000, 67921, 71415, 74523, 77281,
+		Entropy64: []int{0, 16000, 26666, 35320, 42666, 49040, 54640, 59596, 64000, 67921, 71415, 74523, 77281,
 			79718, 81858, 83724, 85333, 86701, 87843, 88771, 89497, 90030, 90380, 90554, 90562, 90409, 90102,
 			89648, 89050, 88316, 87448, 86453, 85333, 84093, 82736, 81266, 79687, 78000, 76210, 74318, 72327,
 			70240, 68060, 65788, 63426, 60977, 58443, 55824, 53124, 50344, 47485, 44550, 41539, 38453, 35296,
@@ -39,7 +39,6 @@ func GetConfig() Config {
 		EntropyScale: 1024000,
 	}
 }
-
 
 type IndexEntry struct {
 	Level    int
@@ -56,23 +55,23 @@ type SampledHash struct {
 }
 
 type Transition struct {
-	Hash uint32
-	DocId string
+	Hash     uint32
+	DocId    string
 	Position float64
 	Distance float64
-	Level int
-	Last bool
+	Level    int
+	Last     bool
 }
 
 type PBHash struct {
-	Index   IndexEntry
-	Sampled map[string][]SampledHash
-	Committed map[string]int
-	Matches map[string]map[string]int
-	State   map[Transition]map[Transition]bool
-	Keys 		map[Transition]map[Transition]bool
-	LevelCount   map[int]int
-	Random  *rand.Rand
+	Index      IndexEntry
+	Sampled    map[string][]SampledHash
+	Committed  map[string]int
+	Matches    map[string]map[string]int
+	State      map[Transition]map[Transition]bool
+	Keys       map[Transition]map[Transition]bool
+	LevelCount map[int]int
+	Random     *rand.Rand
 }
 
 type Feature struct {
@@ -84,7 +83,6 @@ type Feature struct {
 	PreviousEntropy int
 	Position        int
 }
-
 
 func (f Feature) Compute(index int, pb PBHash, docId string, reader *bufio.Reader, match bool) []SampledHash {
 	buf := make([]byte, 1024)
@@ -113,7 +111,6 @@ func (f Feature) Compute(index int, pb PBHash, docId string, reader *bufio.Reade
 
 	y := 0
 	_ = fmt.Println
-
 
 	var k int
 	for {
@@ -144,7 +141,7 @@ func (f Feature) Compute(index int, pb PBHash, docId string, reader *bufio.Reade
 
 			f.PreviousEntropy = entropy
 
-			score = entropy>>f.Config.EntropyPower
+			score = entropy >> f.Config.EntropyPower
 
 			if score < 100 || score > 980 {
 				score = 0
@@ -171,8 +168,6 @@ func (f Feature) Compute(index int, pb PBHash, docId string, reader *bufio.Reade
 			}
 
 			counts[max_index] += 1
-
-
 
 			if counts[max_index] == 8 {
 				pb.Match(docId, p, hashes[max_index])
@@ -217,7 +212,6 @@ func (f Feature) Compute(index int, pb PBHash, docId string, reader *bufio.Reade
 	return features
 }
 
-
 func (pb PBHash) Commit(docId string) {
 	if len(pb.Sampled[docId]) == 0 {
 		log.Print(fmt.Sprintf("No hashes sampled for doc: %v", docId))
@@ -243,7 +237,7 @@ func (pb PBHash) Commit(docId string) {
 		}
 
 		wordIndex := hash.Hash % w
-		partition := int(math.Min(float64(len(partitions) - 1), math.Floor(i / partitionSize)))
+		partition := int(math.Min(float64(len(partitions)-1), math.Floor(i/partitionSize)))
 		randomwords[wordIndex] = append(randomwords[wordIndex], hash)
 		partitions[partition] = append(partitions[partition], hash)
 		i += 1
@@ -275,11 +269,11 @@ func (pb PBHash) Commit(docId string) {
 				distance = word[level].Index - word[level-1].Index
 
 				key = &Transition{
-					Hash: sampledHash.Hash,
-					DocId: docId,
+					Hash:     sampledHash.Hash,
+					DocId:    docId,
 					Position: index,
 					Distance: distance,
-					Level: level,
+					Level:    level,
 				}
 			} else {
 				key = &Transition{
@@ -291,9 +285,7 @@ func (pb PBHash) Commit(docId string) {
 				pb.Keys[*key] = map[Transition]bool{}
 			}
 
-
 			pb.Keys[*key][*pkey] = level == len(word)-2
-
 
 			pkey = key
 			level -= 1
@@ -335,7 +327,7 @@ func (pb PBHash) Match(docId string, index float64, ihash uint32) {
 				nextTr := &Transition{Hash: next.Hash}
 
 				if _, ok := pb.State[*nextTr]; !ok {
-						pb.State[*nextTr] = map[Transition]bool{}
+					pb.State[*nextTr] = map[Transition]bool{}
 				}
 
 				pb.State[*nextTr][*&next] = false
@@ -350,7 +342,7 @@ func (pb PBHash) Match(docId string, index float64, ihash uint32) {
 			tr := &Transition{Hash: transition.Hash}
 
 			if _, ok := pb.State[*tr]; !ok {
-					pb.State[*tr] = map[Transition]bool{}
+				pb.State[*tr] = map[Transition]bool{}
 			}
 
 			pb.State[*tr][*&transition] = false
@@ -366,9 +358,8 @@ func (pb PBHash) Process(index int, docId string, reader *bufio.Reader, match bo
 	pb.Matches[docId] = map[string]int{}
 
 	pb.Sampled[docId] = feature.Compute(index, pb, docId, reader, match)
-  pb.Commit(docId)
+	pb.Commit(docId)
 }
-
 
 func Create() Feature {
 	_ = log.Print
