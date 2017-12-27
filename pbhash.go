@@ -116,30 +116,28 @@ func (pb *PBHash) GetFeatures(index int, docId string, reader *bufio.Reader, mat
 				popularWindowIndex = windowIndex
 			} else if windowIndex == popularWindowIndex {
 				// Popular index has been dropped and we need to find the new popular index.
-
 				maxDistance := windowSize - float64(popularityThreshold)
-				current := float64(windowIndex - 1)
+				currentIndex := float64(windowIndex - 1)
 
-				if current < 0 {
-					current =  windowSize - 1
+				if currentIndex < 0 {
+					currentIndex =  windowSize - 1
 				}
 
-				popularWindowIndex = int(current)
+				popularWindowIndex = int(currentIndex)
 
 				currentDistance := 0.0
 				for currentDistance < maxDistance {
-					current--
-
-					if current < 0 {
-						current =  windowSize - 1
-					}
-
 					currentDistance++;
 
-					reachableScore := scores[int(current)] + int(currentDistance)
+					currentIndex--
+					if currentIndex < 0 {
+						currentIndex =  windowSize - 1
+					}
 
-					if scores[int(current)] > scores[popularWindowIndex] && reachableScore >= popularityThreshold {
-						popularWindowIndex = int(current)
+					reachableScore := scores[int(currentIndex)] + int(currentDistance)
+
+					if scores[int(currentIndex)] > scores[popularWindowIndex] && reachableScore >= popularityThreshold {
+						popularWindowIndex = int(currentIndex)
 					}
 				}
 			}
