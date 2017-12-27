@@ -16,7 +16,6 @@ func TestT5(t *testing.T) {
 	pbhash := &PBHash{
 		Matches:    map[string]map[string]int{},
 		Random:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		Sampled:    map[string][]SampledHash{},
 		Committed:  map[string]int{},
 		Keys:       map[Transition]map[Transition]bool{},
 		LevelCount: map[int]int{},
