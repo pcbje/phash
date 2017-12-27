@@ -13,24 +13,24 @@ import (
 )
 
 func TestT5(t *testing.T) {
-	pbhash := PBHash{
+	pbhash := &PBHash{
 		Matches: map[string]map[string]int{},
 		Random:  rand.New(rand.NewSource(time.Now().UnixNano())),
 		Sampled: map[string][]SampledHash{},
 		Committed: map[string]int{},
-		Keys: map[string]map[string]bool{},
-		LevelCount: map[string]int{},
-		State: map[string]map[string]bool{},
+		Keys: map[Transition]map[Transition]bool{},
+		LevelCount: map[int]int{},
+		State: map[Transition]map[Transition]bool{},
 	}
 
 	_ = pbhash
 
 
-	root := "/Users/pcbje/Downloads/t5"
-	//root := "simple"
+	//root := "/Users/pcbje/Downloads/t5"
 	//root := "tests/spec"
+	root := "tests/ppt"
 
-
+	t.Fail()
 	list, err := ioutil.ReadDir(root)
 	if err != nil {
 		log.Panic(err)
@@ -51,6 +51,8 @@ func TestT5(t *testing.T) {
 			fmt.Println(fmt.Sprintf("%v (%v)\t%v (%v)\t%v", docId, pbhash.Committed[docId], matchedDocId, pbhash.Committed[matchedDocId], count))
 		}
 	}
+
+
 }
 
 func main() {

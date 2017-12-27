@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"strings"
+
 	"log"
-	"strconv"
 )
 
 type Config struct {
@@ -56,14 +55,23 @@ type SampledHash struct {
 	Index  float64
 }
 
+type Transition struct {
+	Hash uint32
+	DocId string
+	Position float64
+	Distance float64
+	Level int
+	Last bool
+}
+
 type PBHash struct {
 	Index   IndexEntry
 	Sampled map[string][]SampledHash
 	Committed map[string]int
 	Matches map[string]map[string]int
-	State   map[string]map[string]bool
-	Keys 		map[string]map[string]bool
-	LevelCount   map[string]int
+	State   map[Transition]map[Transition]bool
+	Keys 		map[Transition]map[Transition]bool
+	LevelCount   map[int]int
 	Random  *rand.Rand
 }
 
@@ -250,9 +258,9 @@ func (pb PBHash) Commit(docId string) {
 
 		cw += 1
 		level := len(word) - 1
-		var key string
-		var pkey string
-		pkey = fmt.Sprintf("done\x00%v", docId)
+		var key *Transition
+		var pkey *Transition
+		pkey = &Transition{DocId: docId, Last: true}
 		var index float64
 		var distance float64
 		var sampledHash SampledHash
@@ -265,17 +273,26 @@ func (pb PBHash) Commit(docId string) {
 			if level > 0 {
 				index = sampledHash.Index
 				distance = word[level].Index - word[level-1].Index
-				key = fmt.Sprintf("%v\x00%v\x00%v\x00%v\x00%v", sampledHash.Hash, docId, index, distance, level)
+
+				key = &Transition{
+					Hash: sampledHash.Hash,
+					DocId: docId,
+					Position: index,
+					Distance: distance,
+					Level: level,
+				}
 			} else {
-				key = fmt.Sprintf("%v", sampledHash.Hash)
+				key = &Transition{
+					Hash: sampledHash.Hash,
+				}
 			}
 
-			if _, ok := pb.Keys[key]; !ok {
-				pb.Keys[key] = map[string]bool{}
+			if _, ok := pb.Keys[*key]; !ok {
+				pb.Keys[*key] = map[Transition]bool{}
 			}
 
 
-			pb.Keys[key][pkey] = level == len(word)-2
+			pb.Keys[*key][*pkey] = level == len(word)-2
 
 
 			pkey = key
@@ -287,93 +304,56 @@ func (pb PBHash) Commit(docId string) {
 }
 
 func (pb PBHash) Match(docId string, index float64, ihash uint32) {
-	hash := fmt.Sprintf("%v", ihash)
+	hash := &Transition{Hash: ihash}
 
-	var parts []string
+	if _, ok := pb.State[*hash]; ok {
+		for transition, _ := range pb.State[*hash] {
+			pb.LevelCount[transition.Level] += 1
 
-	var matchDocId string
-	var matchIndex float64
-	var matchDistance float64
-	var matchLevel string
-	var matchKey string
-
-	var nextHash string
-	var nextDocId string
-	var nextIndex string
-	var nextDistance string
-	var nextLevel string
-	var nextKey string
-
-
-	if _, ok := pb.State[hash]; ok {
-
-		for thisKey, _ := range pb.State[hash] {
-			parts = strings.Split(thisKey, "\x00")
-			matchDocId = parts[0]
-			matchIndex, _ = strconv.ParseFloat(parts[1], 64)
-			matchDistance, _ = strconv.ParseFloat(parts[2], 64)
-			matchLevel = parts[3]
-
-			pb.LevelCount[matchLevel] += 1
-
-			matchKey = fmt.Sprintf("%v\x00%v\x00%v\x00%v\x00%v", hash, matchDocId, matchIndex, matchDistance, matchLevel)
-
-			actualDistance := index - matchIndex
-			if actualDistance/matchDistance > 1.1 {
-				delete(pb.Keys[hash], thisKey)
-				if len(pb.Keys[hash]) == 0 {
-					delete(pb.Keys, matchKey)
+			actualDistance := index - transition.Position
+			if actualDistance/transition.Distance > 1.25 {
+				delete(pb.Keys[*hash], *&transition)
+				if len(pb.Keys[*hash]) == 0 {
+					delete(pb.Keys, *hash)
 				}
 				continue
 			}
 
-			if _, last := pb.Keys[matchKey][fmt.Sprintf("done\x00%v", matchDocId)]; last {
-				pb.Matches[docId][matchDocId] += 1
-				delete(pb.State[hash], thisKey)
-			}
+			for next, _ := range pb.Keys[*&transition] {
+				// Wrong doc.
+				if next.DocId != transition.DocId {
+					log.Panic("This is not supposed to happen...")
+				}
 
-			for nextKeyStr, nextIsLast := range pb.Keys[matchKey] {
-				parts = strings.Split(nextKeyStr, "\x00")
-				if len(parts) == 2 {
+				// We have a match.
+				if next.Last {
+					pb.Matches[docId][transition.DocId] += 1
+					delete(pb.State[*hash], *&transition)
 					continue
 				}
-				nextHash = parts[0]
-				nextDocId = parts[1]
-				nextIndex = parts[2]
-				nextDistance = parts[3]
-				nextLevel = parts[4]
 
-				nextKey = fmt.Sprintf("%v\x00%v\x00%v\x00%v", nextDocId, nextIndex, nextDistance, nextLevel)
+				nextTr := &Transition{Hash: next.Hash}
 
-				if _, ok := pb.State[nextHash]; !ok {
-						pb.State[nextHash] = map[string]bool{}
+				if _, ok := pb.State[*nextTr]; !ok {
+						pb.State[*nextTr] = map[Transition]bool{}
 				}
 
-				pb.State[nextHash][nextKey] = nextIsLast
+				pb.State[*nextTr][*&next] = false
 			}
 		}
-}
+	}
 
-	if _, ok := pb.Keys[hash]; ok {
+	if _, ok := pb.Keys[*hash]; ok {
+		for transition, _ := range pb.Keys[*hash] {
+			pb.LevelCount[0] += 1
 
-		for nextKey, nextIsLast := range pb.Keys[hash] {
-			parts = strings.Split(nextKey, "\x00")
-			
-			nextHash = parts[0]
-			nextDocId = parts[1]
-			nextIndex = parts[2]
-			nextDistance = parts[3]
-			nextLevel = parts[4]
+			tr := &Transition{Hash: transition.Hash}
 
-			pb.LevelCount["0"] += 1
-
-			if _, ok := pb.State[nextHash]; !ok {
-					pb.State[nextHash] = map[string]bool{}
+			if _, ok := pb.State[*tr]; !ok {
+					pb.State[*tr] = map[Transition]bool{}
 			}
 
-			nextKey = fmt.Sprintf("%v\x00%v\x00%v\x00%v", nextDocId, nextIndex, nextDistance, nextLevel)
-
-			pb.State[nextHash][nextKey] = nextIsLast
+			pb.State[*tr][*&transition] = false
 		}
 	}
 }
@@ -381,14 +361,12 @@ func (pb PBHash) Match(docId string, index float64, ihash uint32) {
 func (pb PBHash) Process(index int, docId string, reader *bufio.Reader, match bool) {
 	feature := Create()
 	_ = feature
-	pb.State = map[string]map[string]bool{}
+	pb.State = map[Transition]map[Transition]bool{}
 	pb.Sampled[docId] = []SampledHash{}
 	pb.Matches[docId] = map[string]int{}
 
 	pb.Sampled[docId] = feature.Compute(index, pb, docId, reader, match)
   pb.Commit(docId)
-
-	//fmt.Println(docId)
 }
 
 
