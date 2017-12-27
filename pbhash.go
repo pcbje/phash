@@ -48,23 +48,23 @@ func (f PBHash) GetFeatures(index int, pb PBHash, docId string, reader *bufio.Re
 		32067, 28768, 25400, 21965, 18464, 14897, 11266, 7572, 3816, 0}
 
 	var (
-		windowSize          float64   = 64.0
-		entropyPower        uint32    = 10
-		fileIndex           float64   = 0.0
-		popularWindowIndex  int       = 0
-		windowIndex         int       = 0
-		previousEntropy     int       = 0
-		popularityThreshold int       = 8
+		windowSize          float64 = 64.0
+		entropyPower        uint32  = 10
+		fileIndex           float64 = 0.0
+		popularWindowIndex  int     = 0
+		windowIndex         int     = 0
+		previousEntropy     int     = 0
+		popularityThreshold int     = 8
 
-		ascii               []int     = make([]int, 256)
-		window              []byte    = make([]byte, int(windowSize))
-		hashes              []uint32  = make([]uint32, int(windowSize))
-		scores              []int     = make([]int, int(windowSize))
-		counts              []int     = make([]int, int(windowSize))
-		buffer              []byte    = make([]byte, 1024)
+		ascii  []int    = make([]int, 256)
+		window []byte   = make([]byte, int(windowSize))
+		hashes []uint32 = make([]uint32, int(windowSize))
+		scores []int    = make([]int, int(windowSize))
+		counts []int    = make([]int, int(windowSize))
+		buffer []byte   = make([]byte, 1024)
 
-		features            []Feature = []Feature{}
-		hasher              *BuzHash  = NewBuzHash(uint32(16))
+		features []Feature = []Feature{}
+		hasher   *BuzHash  = NewBuzHash(uint32(16))
 	)
 
 	for {
@@ -151,18 +151,19 @@ func (pb PBHash) Commit(docId string, features []Feature) {
 		return
 	}
 
-	threshold := 1.0 / float64(len(features))
-	wordLength := int(math.Sqrt(math.Sqrt(float64(len(features) / 2))))
-	wordCount := (len(features) / 2) / wordLength
-	randomwords := make([][]Feature, wordCount)
-	partitionSize := math.Max(4, float64(wordLength))
-	partitionCount := (len(features) / 2) / int(partitionSize)
-	partitions := make([][]Feature, partitionCount)
+	var (
+		wordLength     int         = int(math.Sqrt(math.Sqrt(float64(len(features) / 2))))
+		wordCount      int         = (len(features) / 2) / wordLength
+		threshold      float64     = 1.0 / float64(len(features))
+		partitionSize  float64     = math.Max(4, float64(wordLength))
+		partitionCount int         = (len(features) / 2) / int(partitionSize)
+		randomwords    [][]Feature = make([][]Feature, wordCount)
+		partitions     [][]Feature = make([][]Feature, partitionCount)
+		w              uint32      = uint32(len(randomwords))
+		i              float64     = 0
+		cw             int         = 0
+	)
 
-	var w uint32
-	w = uint32(len(randomwords))
-	var i float64
-	i = 0
 	for _, hash := range features {
 		if hash.Random > threshold {
 			continue
@@ -178,7 +179,6 @@ func (pb PBHash) Commit(docId string, features []Feature) {
 		i += 1
 	}
 
-	cw := 0
 	for _, word := range append(randomwords, partitions...) {
 		// Won't compare short words...
 		if len(word) < 4 {
