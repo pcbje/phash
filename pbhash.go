@@ -177,17 +177,12 @@ func (pb *PBHash) GetFeatures(index int, docId string, reader *bufio.Reader, mat
 }
 
 func (pb *PBHash) CommitFeatures(docId string, features []Feature) {
-	if len(features) == 0 {
-		log.Print("No hashes sampled for doc: ", docId)
-		return
-	}
-
 	var (
-
-		wordLength     int         = int(math.Max(5, math.Sqrt(math.Sqrt(float64(len(features) / 2)))))
+		minWordLength int = 5
+		wordLength     int         = int(math.Max(float64(minWordLength), math.Sqrt(math.Sqrt(float64(len(features) / 2)))))
 		wordCount      int         = int(math.Max(1, float64((len(features) / 2) / wordLength)))
 		threshold      float64     = 1.0 / math.Sqrt(float64(len(features)))
-		partitionCount float64     = math.Floor((float64(len(features) / 2)) / math.Max(5, float64(wordLength)))
+		partitionCount float64     = math.Floor((float64(len(features) / 2)) / float64(wordLength))
 		randomwords    [][]Feature = make([][]Feature, wordCount)
 		partitions     [][]Feature = make([][]Feature, int(partitionCount))
 		partitionSize  float64     = math.Ceil((float64(len(features)) / 2) / float64(partitionCount))
@@ -204,19 +199,16 @@ func (pb *PBHash) CommitFeatures(docId string, features []Feature) {
 		if partitionCount > 0 {
 			partition = math.Floor(i / partitionSize)
 			partition = math.Max(0, math.Min(partition, partitionCount-1))
-
 			partitions[int(partition)] = append(partitions[int(partition)], hash)
 		}
 
-
 		randomwords[int(i)%w] = append(randomwords[int(i)%w], hash)
-
 		i += 1
 	}
 
 	for _, word := range append(randomwords, partitions...) {
 		// Won't compare short words...
-		if len(word) < 5 {
+		if len(word) < minWordLength {
 			continue
 		}
 
