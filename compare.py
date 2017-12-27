@@ -23,13 +23,13 @@ with open('res.txt') as inp:
         if (a, b) in cache or (b, a) in cache:
             if (a, b) in cache:
                 hits[(a,b)] = int(c)
-                print "<",  cache[(a, b)]
+                #print "<",  cache[(a, b)]
                 i+=1
                 del cache[(a, b)]
 
             if (b, a) in cache:
                 hits[(b,a)] = int(c)
-                print ">", cache[(b, a)]
+                #print ">", cache[(b, a)]
                 i+=1
                 del cache[(b, a)]
 

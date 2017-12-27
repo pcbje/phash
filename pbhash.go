@@ -208,8 +208,8 @@ func (pb *PBHash) CommitFeatures(docId string, features []Feature) {
 	}
 
 	for _, word := range append(randomwords, partitions...) {
-		// Won't compare short words...
-		if len(word) < minWordLength {
+		// Won't compare such short words...
+		if len(word) <= 3 {
 			continue
 		}
 

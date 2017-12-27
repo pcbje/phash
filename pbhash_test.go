@@ -21,8 +21,8 @@ func TestT5(t *testing.T) {
 		State:      map[string]map[Transition]map[Transition]bool{},
 	}
 
-	//root := "/Users/pcbje/Downloads/t5"
-	root := "tests/spec"
+	root := "/Users/pcbje/Downloads/t5"
+	//root := "tests/spec"
 
 	list, _ := ioutil.ReadDir(root)
 
