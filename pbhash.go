@@ -10,28 +10,6 @@ import (
 	"strconv"
 )
 
-
-func ENTROPY_SCALE() int {
-	// c.Bins * (1 << c.EntropyPower)
-	return 1024000
-}
-
-func ENTROPY_64() []int {
-	/*
-		i := 1
-		for i < c.WindowSize {
-			p := float64(i) / float64(c.WindowSize)
-			c.Entropy64[i] = int((-p * math.Log2(p) / 6) * float64(c.EntropyScale))
-			i += 1
-		}
-	*/
-	return []int{0, 16000, 26666, 35320, 42666, 49040, 54640, 59596, 64000, 67921, 71415, 74523, 77281,
-		79718, 81858, 83724, 85333, 86701, 87843, 88771, 89497, 90030, 90380, 90554, 90562, 90409, 90102,
-		89648, 89050, 88316, 87448, 86453, 85333, 84093, 82736, 81266, 79687, 78000, 76210, 74318, 72327,
-		70240, 68060, 65788, 63426, 60977, 58443, 55824, 53124, 50344, 47485, 44550, 41539, 38453, 35296,
-		32067, 28768, 25400, 21965, 18464, 14897, 11266, 7572, 3816, 0}
-}
-
 type Config struct {
 	WindowSize   int
 	Bins         int
@@ -45,8 +23,21 @@ func GetConfig() Config {
 		WindowSize:   64,
 		Bins:         1000,
 		EntropyPower: 10,
-		Entropy64:    ENTROPY_64(),
-		EntropyScale: ENTROPY_SCALE(),
+		/*
+			i := 1
+			for i < c.WindowSize {
+				p := float64(i) / float64(c.WindowSize)
+				c.Entropy64[i] = int((-p * math.Log2(p) / 6) * float64(c.EntropyScale))
+				i += 1
+			}
+		*/
+		Entropy64:    []int{0, 16000, 26666, 35320, 42666, 49040, 54640, 59596, 64000, 67921, 71415, 74523, 77281,
+			79718, 81858, 83724, 85333, 86701, 87843, 88771, 89497, 90030, 90380, 90554, 90562, 90409, 90102,
+			89648, 89050, 88316, 87448, 86453, 85333, 84093, 82736, 81266, 79687, 78000, 76210, 74318, 72327,
+			70240, 68060, 65788, 63426, 60977, 58443, 55824, 53124, 50344, 47485, 44550, 41539, 38453, 35296,
+			32067, 28768, 25400, 21965, 18464, 14897, 11266, 7572, 3816, 0},
+		// c.Bins * (1 << c.EntropyPower)
+		EntropyScale: 1024000,
 	}
 }
 
@@ -367,7 +358,7 @@ func (pb PBHash) Match(docId string, index float64, ihash uint32) {
 
 		for nextKey, nextIsLast := range pb.Keys[hash] {
 			parts = strings.Split(nextKey, "\x00")
-			// sampledHash.Hash, docId, index, distance, level
+			
 			nextHash = parts[0]
 			nextDocId = parts[1]
 			nextIndex = parts[2]
