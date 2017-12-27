@@ -178,19 +178,17 @@ func (pb *PBHash) GetFeatures(index int, docId string, reader *bufio.Reader, mat
 
 func (pb *PBHash) CommitFeatures(docId string, features []Feature) {
 	var (
-		expectedFactor       float64     = math.Sqrt(2)
 		minWordLength        int         = 5
-		expectedFeatureCount float64     = float64(len(features)) / expectedFactor
+		expectedFeatureCount float64     = float64(len(features)) / math.Sqrt(2)
 		wordLength           float64     = math.Max(float64(minWordLength), math.Sqrt(math.Sqrt(expectedFeatureCount)))
-		wordCount            float64     = math.Max(1, expectedFeatureCount/wordLength)
+		wordCount            float64     = math.Max(1, math.Floor(expectedFeatureCount/wordLength))
+		partitionCount       float64     = wordCount
 		threshold            float64     = 1.0 / math.Sqrt(float64(len(features)))
-		partitionCount       float64     = math.Floor((expectedFeatureCount) / wordLength)
+		partitionSize        float64     = math.Ceil(expectedFeatureCount / partitionCount)
+		addedFeatures        float64     = 0
+		partition            float64     = 0
 		randomwords          [][]Feature = make([][]Feature, int(wordCount))
 		partitions           [][]Feature = make([][]Feature, int(partitionCount))
-		partitionSize        float64     = math.Ceil(expectedFactor / partitionCount)
-		w                    int         = len(randomwords)
-		i                    float64     = 0
-		partition            float64     = 0
 	)
 
 	for _, hash := range features {
@@ -199,13 +197,14 @@ func (pb *PBHash) CommitFeatures(docId string, features []Feature) {
 		}
 
 		if partitionCount > 0 {
-			partition = math.Floor(i / partitionSize)
+			partition = math.Floor(addedFeatures / partitionSize)
 			partition = math.Max(0, math.Min(partition, partitionCount-1))
 			partitions[int(partition)] = append(partitions[int(partition)], hash)
 		}
 
-		randomwords[int(i)%w] = append(randomwords[int(i)%w], hash)
-		i += 1
+		wordIndex := int(addedFeatures) % len(randomwords)
+		randomwords[wordIndex] = append(randomwords[wordIndex], hash)
+		addedFeatures += 1
 	}
 
 	for _, word := range append(randomwords, partitions...) {
@@ -217,6 +216,8 @@ func (pb *PBHash) CommitFeatures(docId string, features []Feature) {
 		pb.Committed[docId]++
 
 		var key *Transition
+
+		// Last part of the word.
 		var pkey *Transition = &Transition{
 			DocId: docId,
 			Last:  true,
