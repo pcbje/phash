@@ -120,18 +120,18 @@ func (pb *PBHash) GetFeatures(index int, docId string, reader *bufio.Reader, mat
 				currentIndex := float64(windowIndex - 1)
 
 				if currentIndex < 0 {
-					currentIndex =  windowSize - 1
+					currentIndex = windowSize - 1
 				}
 
 				popularWindowIndex = int(currentIndex)
 
 				currentDistance := 0.0
 				for currentDistance < maxDistance {
-					currentDistance++;
+					currentDistance++
 
 					currentIndex--
 					if currentIndex < 0 {
-						currentIndex =  windowSize - 1
+						currentIndex = windowSize - 1
 					}
 
 					reachableScore := scores[int(currentIndex)] + int(currentDistance)
@@ -178,17 +178,19 @@ func (pb *PBHash) GetFeatures(index int, docId string, reader *bufio.Reader, mat
 
 func (pb *PBHash) CommitFeatures(docId string, features []Feature) {
 	var (
-		minWordLength int = 5
-		wordLength     int         = int(math.Max(float64(minWordLength), math.Sqrt(math.Sqrt(float64(len(features) / 2)))))
-		wordCount      int         = int(math.Max(1, float64((len(features) / 2) / wordLength)))
-		threshold      float64     = 1.0 / math.Sqrt(float64(len(features)))
-		partitionCount float64     = math.Floor((float64(len(features) / 2)) / float64(wordLength))
-		randomwords    [][]Feature = make([][]Feature, wordCount)
-		partitions     [][]Feature = make([][]Feature, int(partitionCount))
-		partitionSize  float64     = math.Ceil((float64(len(features)) / 2) / float64(partitionCount))
-		w              int         = len(randomwords)
-		i              float64     = 0
-		partition      float64     = 0
+		expectedFactor       float64     = 1.5
+		minWordLength        int         = 5
+		expectedFeatureCount float64     = float64(len(features)) / expectedFactor
+		wordLength           float64     = math.Max(float64(minWordLength), math.Sqrt(math.Sqrt(expectedFeatureCount)))
+		wordCount            float64     = math.Max(1, expectedFeatureCount/wordLength)
+		threshold            float64     = 1.0 / math.Sqrt(float64(len(features)))
+		partitionCount       float64     = math.Floor((expectedFeatureCount) / wordLength)
+		randomwords          [][]Feature = make([][]Feature, int(wordCount))
+		partitions           [][]Feature = make([][]Feature, int(partitionCount))
+		partitionSize        float64     = math.Ceil(expectedFactor / partitionCount)
+		w                    int         = len(randomwords)
+		i                    float64     = 0
+		partition            float64     = 0
 	)
 
 	for _, hash := range features {
