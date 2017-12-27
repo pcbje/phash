@@ -33,7 +33,7 @@ type PBHash struct {
 
 func (f PBHash) GetFeatures(index int, pb PBHash, docId string, reader *bufio.Reader, match bool) []Feature {
 	/*
-		entropyScale := 1024000
+		entropyScale := bins << entropyPower (1024000)
 		i := 1
 		for i < int(windowSize) {
 			p := float64(i) / windowSize
@@ -41,7 +41,8 @@ func (f PBHash) GetFeatures(index int, pb PBHash, docId string, reader *bufio.Re
 			i += 1
 		}
 	*/
-	entropyTable := []int{0, 16000, 26666, 35320, 42666, 49040, 54640, 59596, 64000, 67921, 71415, 74523, 77281,
+	entropyTable := []int{
+		0, 16000, 26666, 35320, 42666, 49040, 54640, 59596, 64000, 67921, 71415, 74523, 77281,
 		79718, 81858, 83724, 85333, 86701, 87843, 88771, 89497, 90030, 90380, 90554, 90562, 90409, 90102,
 		89648, 89050, 88316, 87448, 86453, 85333, 84093, 82736, 81266, 79687, 78000, 76210, 74318, 72327,
 		70240, 68060, 65788, 63426, 60977, 58443, 55824, 53124, 50344, 47485, 44550, 41539, 38453, 35296,
