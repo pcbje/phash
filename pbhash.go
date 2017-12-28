@@ -199,10 +199,14 @@ func (pb *PBHash) CommitFeatures(docId string, features []Feature) {
 		if partitionCount > 0 {
 			partition = math.Floor(addedFeatures / partitionSize)
 			partition = math.Max(0, math.Min(partition, partitionCount-1))
+
+			// "Embedded score += 1"
 			partitions[int(partition)] = append(partitions[int(partition)], hash)
 		}
 
 		wordIndex := int(addedFeatures) % len(randomwords)
+
+		// "Similarity score += 1"
 		randomwords[wordIndex] = append(randomwords[wordIndex], hash)
 		addedFeatures += 1
 	}
