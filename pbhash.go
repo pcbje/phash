@@ -148,7 +148,8 @@ func (pb *PBHash) GetFeatures(index int, docId string, reader *bufio.Reader, mat
 				pb.Match(docId, fileIndex, hashes[popularWindowIndex])
 
 				if _, seenHash := seenHashes[hashes[popularWindowIndex]]; !seenHash {
-					randomNumber := pb.Random.Float64()
+					//randomNumber := pb.Random.Float64()
+					randomNumber := 1 / float64(hashes[popularWindowIndex] << 27 >> 27)
 
 					if randomNumber <= 1.0/math.Sqrt(float64(len(features))) {
 						seenHashes[hashes[popularWindowIndex]] = true
@@ -265,6 +266,8 @@ func (pb *PBHash) Match(docId string, index float64, ihash uint32) {
 			pb.LevelCount[transition.Level] += 1
 
 			actualDistance := index - transition.Position
+
+			// Too far away.
 			if actualDistance/transition.Distance > 1.25 {
 				delete(pb.Keys[*hash], *&transition)
 				if len(pb.Keys[*hash]) == 0 {

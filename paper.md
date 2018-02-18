@@ -20,10 +20,14 @@ Suffix on disk
 sdhash: http://roussev.net/sdhash/tutorial/05-advanced.html (120 sec to match)
 iMatch: Based on frequency of signatures, not suited for embeddedness
 
-PHASH: Probabilistic multi-pattern approximate matching
+PHASH: Multi-pattern approximate matching
+
+* Must be deterministic
 
 * Introduction
-  * Applications
+  * Motivation and applications
+    * Predictive coding
+    * Assisted review
   * Limitations
 
 * Related work
@@ -46,7 +50,6 @@ PHASH: Probabilistic multi-pattern approximate matching
   * Establishing a t5 ground truth
       * A/B similarity
       * A/B embeddedness
-      * B/A embeddedness
   * pbhash parameters
     * window size
     * poplularity threshold
@@ -54,7 +57,7 @@ PHASH: Probabilistic multi-pattern approximate matching
 
 * Experimental results
   * Parameters: precision/recall against ground truth / speed / memory
-  * Algorithms: sdhash, ssdeep, imatch, pbhash
+  * Algorithms: sdhash, ssdeep, pbhash
 
 * Discussion
   * Probably not well suited for compressed data
