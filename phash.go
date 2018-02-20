@@ -218,10 +218,8 @@ func (pb *PBHash) CommitFeatures(docId string, features []Feature) {
 			} else {
 				key = &Transition{
 					Hash:     word[level].Hash,
-					DocId:    docId,
-					Position: word[level].Index,
+					// Math.Log(Distance)?
 					Distance: word[level].Index - word[level-1].Index,
-					Level:    level,
 				}
 			}
 
@@ -242,8 +240,6 @@ func (pb *PBHash) Match(docId string, index float64, ihash uint32) {
 
 	if _, ok := pb.State[docId][*hash]; ok {
 		for transition, _ := range pb.State[docId][*hash] {
-			pb.LevelCount[transition.Level] += 1
-
 			actualDistance := index - transition.Position
 
 			// Too far away.
@@ -256,11 +252,6 @@ func (pb *PBHash) Match(docId string, index float64, ihash uint32) {
 			}
 
 			for nextState, _ := range pb.Keys[*&transition] {
-				// Wrong docId.
-				if nextState.DocId != transition.DocId {
-					log.Panic("This is not supposed to happen...")
-				}
-
 				// We have a match.
 				if nextState.Last {
 					pb.Matches[docId][transition.DocId] += 1
@@ -268,7 +259,7 @@ func (pb *PBHash) Match(docId string, index float64, ihash uint32) {
 					continue
 				}
 
-				nextTransition := &Transition{Hash: nextState.Hash}
+				nextTransition := &Transition{Hash: nextState.Hash, Position: index}
 
 				if _, ok := pb.State[docId][*nextTransition]; !ok {
 					pb.State[docId][*nextTransition] = map[Transition]bool{}
@@ -286,7 +277,7 @@ func (pb *PBHash) Match(docId string, index float64, ihash uint32) {
 		for transition, _ := range pb.Keys[*hash] {
 			pb.LevelCount[0] += 1
 
-			tr := &Transition{Hash: transition.Hash}
+			tr := &Transition{Hash: transition.Hash, Position: index}
 
 			if _, ok := pb.State[docId][*tr]; !ok {
 				pb.State[docId][*tr] = map[Transition]bool{}
