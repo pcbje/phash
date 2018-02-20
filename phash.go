@@ -71,8 +71,6 @@ func (pb *PBHash) GetFeatures(index int, docId string, reader *bufio.Reader, mat
 	pb.Matches[docId] = map[string]int{}
 	pb.State[docId] = map[Transition]map[Transition]bool{}
 
-	seenHashes := map[uint32]bool{}
-
 	for {
 		readLength, _ := reader.Read(buffer)
 		bufferIndex := 0
@@ -106,11 +104,6 @@ func (pb *PBHash) GetFeatures(index int, docId string, reader *bufio.Reader, mat
 
 			counts[windowIndex] = 0
 			scores[windowIndex] = entropy >> entropyPower
-
-			// Ignore very low and very high ([0, 1000]) entropy windows.
-			if scores[windowIndex] < 100 || scores[windowIndex] > 980 {
-				scores[windowIndex] = 0
-			}
 
 			if scores[windowIndex] > scores[popularWindowIndex] {
 				popularWindowIndex = windowIndex
@@ -147,19 +140,11 @@ func (pb *PBHash) GetFeatures(index int, docId string, reader *bufio.Reader, mat
 			if counts[popularWindowIndex] == popularityThreshold {
 				pb.Match(docId, fileIndex, hashes[popularWindowIndex])
 
-				if _, seenHash := seenHashes[hashes[popularWindowIndex]]; !seenHash {
-					//randomNumber := pb.Random.Float64()
-					randomNumber := 1 / float64(hashes[popularWindowIndex] << 27 >> 27)
-
-					if randomNumber <= 1.0/math.Sqrt(float64(len(features))) {
-						seenHashes[hashes[popularWindowIndex]] = true
-						features = append(features, Feature{
-							Hash:   hashes[popularWindowIndex],
-							Random: randomNumber,
-							Index:  fileIndex,
-						})
-					}
-				}
+				features = append(features, Feature{
+					Hash:   hashes[popularWindowIndex],
+					Random: randomNumber,
+					Index:  fileIndex,
+				})
 			}
 
 			fileIndex++
