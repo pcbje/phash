@@ -9,7 +9,6 @@ import (
 
 type Feature struct {
 	Hash   uint32
-	Random float64
 	Index  float64
 }
 
@@ -142,7 +141,6 @@ func (pb *PBHash) GetFeatures(index int, docId string, reader *bufio.Reader, mat
 
 				features = append(features, Feature{
 					Hash:   hashes[popularWindowIndex],
-					Random: randomNumber,
 					Index:  fileIndex,
 				})
 			}
@@ -178,10 +176,6 @@ func (pb *PBHash) CommitFeatures(docId string, features []Feature) {
 	)
 
 	for _, hash := range features {
-		if hash.Random > threshold {
-			continue
-		}
-
 		if partitionCount > 0 {
 			partition = math.Floor(addedFeatures / partitionSize)
 			partition = math.Max(0, math.Min(partition, partitionCount-1))
